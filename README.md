@@ -8,7 +8,7 @@ SPFIT is an IDL package to simultaneous fit stellar continuum and emission lines
 
 Fu et al. 2018, https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F
 
-Steffen, Fu, et al. 2021, ApJ, currently under review. 
+Steffen et al. 2021, ApJ, currently under review. 
 
 ## Setup
 
