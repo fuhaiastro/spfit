@@ -1,0 +1,39 @@
+; check the extinction correction formulae using CCM law
+
+; calculate A_lambda at H-alpha and H-beta for Av=1 mag
+; 	ccm_UNRED,[6564.61,4862.68],[1.0,1.0],1.0/3.1,funred,R_V=3.1,A_Lambda=Al
+; the above gives
+;	Al[0] = A_6565/Av = 0.812214, Al[1] = A_4863/Av = 1.18113
+; we can then derive 
+; => Av = 2.5/(Al[1]-Al[0]) * log[(Ha/Hb)/2.85] = 6.7766447 log[(Ha/Hb)/2.85]
+; => Ha,int/Ha,obs = [(Ha/Hb)/2.85]^[Al[0]/(Al[1]-Al[0])] = [Ha/Hb)/2.85]^2.2016335
+
+wave = [6564.61,4862.68]
+x = 1.0/(wave/1e4) ; um^-1
+y = x-1.82
+
+; Eq 3a and 3b from Cardelli+89
+c1 = [ 1. , 0.17699, -0.50447, -0.02427,  0.72085,    $ ;Original
+            0.01979, -0.77530,  0.32999 ]               ;coefficients
+c2 = [ 0.,  1.41338,  2.28305,  1.07233, -5.38434,    $ ;from CCM89
+           -0.62251,  5.30260, -2.09002 ]
+;c1 = [ 1. , 0.104,   -0.609,    0.701,  1.137,    $    ;New coefficients
+;           -1.718,   -0.827,    1.647, -0.505 ]        ;from O'Donnell
+;c2 = [ 0.,  1.952,    2.908,   -3.989, -7.985,    $    ;(1994)
+;            11.102,    5.491,  -10.805,  3.347 ]
+a = poly(y,c1)
+b = poly(y,c2)
+
+Rv = 3.1
+Al = a+b/Rv
+print,Al,Al[0]/(Al[1]-Al[0]),2.5/(Al[1]-Al[0])
+;     0.817498      1.16374
+;      2.36108      7.22044
+
+; check with ccm_unred.pro
+ccm_UNRED,wave,[1.0,1.0],1.0/Rv,funred,R_V=Rv,A_Lambda=Al
+print,Al,Al[0]/(Al[1]-Al[0]),2.5/(Al[1]-Al[0])
+;     0.812214      1.18113
+;      2.20163      6.77664
+
+end

@@ -1,0 +1,52 @@
+
+
+=====================================================================
+		README file for the TMJ model data tables 
+		     www.icg.port.ac.uk/~thomasd/tmj
+				July 2010
+=====================================================================
+
+    Based on:
+    --------
+    Evolutionary synthesis code: Maraston (2005, MNRAS, 362, 799)
+    Stellar evolutionary tracks: Cassisi et al (1997, A&A, 317, 10)
+    Stellar library: MILES (Sanchez-Blazquez et al 2006, 371, 703)
+    Index calibration functions: Johansson, Thomas, Maraston (2010, MNRAS, 406, 165)
+    Index response functions: Korn, Maraston, Thomas (2005, A&A, 438, 685)
+
+    Reference: 
+    ---------
+    Thomas D., Maraston C., Johansson, J., 2010, MNRAS, submitted
+
+    Contact: 
+    -------
+    Daniel Thomas (daniel.thomas@port.ac.uk)
+    Claudia Maraston (claudia.maraston@port.ac.uk)
+    Jonas Johansson (jonas.johansson@port.ac.uk)
+
+    Parameters:
+    ----------
+    Ages: t = 0.1,0.2,0.4,0.6,0.8,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 Gyr 
+    Metallicities: [Z/H] = -2.25, -1.35, -0.33, 0.0, 0.35, 0.67
+    Element ratios: [alpha/Fe] = -0.3, 0.0, 0.3, 0.5
+    Additional element: [X/alpha] = 0.3
+
+----------------------------------------------------------------------
+
+Content of the directory:
+
+- tmj.readme			-> this file
+- tmj.dat			-> Base model
+- tmj_padova.dat		-> Padova tracks at [Z/H]>=-0.33
+- tmj_errors.dat		-> 1-sigma errors
+- tmj_C.dat			-> Carbon abundance enhanced by factor 2
+- tmj_N.dat			-> Nitrogen abundance enhanced by factor 2
+- tmj_Mg.dat			-> Magnesium abundance enhanced by factor 2
+- tmj_Si.dat			-> Silicon abundance enhanced by factor 2
+- tmj_Na.dat			-> Sodium abundance enhanced by factor 2
+- tmj_Ca.dat			-> Calcium abundance enhanced by factor 2
+- tmj_Ti.dat			-> Titanium abundance enhanced by factor 2
+
+- tmj_paper.pdf			-> Reprint of MNRAS paper
+
+----------------------------------------------------------------------

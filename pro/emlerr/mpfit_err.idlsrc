@@ -1,0 +1,149 @@
+function mymodel, x, p
+	; X - dummy parameter to be compatible with MPFITFUN
+	COMMON chi2_block, wave, flux, ferr
+	
+	;; 1D Gaussian model, [Centroid, Sigma, Amplitude, baseline]
+	;w = (wave-p[0])/p[1]
+	;model = p[2]*EXP(-w^2/2.) + p[3]
+	
+	; Alternative 1D Gaussian model, Gauss1.pro [Centroid, Sigma, Area, baseline]
+	w = (wave-p[0])/p[1]
+	model = p[2]/(sqrt(2.*!pi)*p[1])*EXP(-w^2/2.) + p[3]
+	return,model
+end
+
+function mydevi, p
+	COMMON chi2_block, wave, flux, ferr
+	deviates = (flux-mymodel(0,p))/ferr
+	return,deviates
+end
+
+function mychi2, p ,determinant=determinant
+	determinant = 1d0 ; to be compatible with exofast_demc
+	chi2 = total( (mydevi(p))^2 )
+	return,chi2
+end
+
+COMMON chi2_block, wave, flux, ferr
+
+goto,plotting
+
+undefine,str
+for sigma = 1.0, 20., 1 do begin ; sigma
+	for pnr = 2.0, 20.0, 1.0 do begin ; peak/noise ratio
+
+	; Area = Peak * Sigma * sqrt(2*PI) =>
+	; Peak = Area/sigma/sqrt(2PI)
+	; constant flux for all models
+	area = 50.
+	peak = area/sigma/sqrt(2*!pi)
+	; synthetic Gaussian spectrum
+	p0 = [6150d, sigma, area, 0]
+	npar = n_elements(P0)
+	ndata = 200 ; # of data points
+	dof = ndata-npar
+	wave = range(6000d,6300,ndata)
+	model = mymodel(0,p0)
+	err = randomn(100,ndata)* (peak/pnr) 
+	flux = model+err
+	ferr = flux*0 + peak/pnr
+	
+	; run MPFIT - requires deviates function
+	P = mpfit('mydevi',P0,/quiet,$
+		status=status,perror=perror,bestnorm=bestnorm,dof=dof)
+	; keep best-fit result and errors
+	npar = n_elements(p0)
+	best_mpfit = dblarr(2,npar) 
+	best_mpfit[0,*] = P
+	best_mpfit[1,*] = perror
+	; show fitting result
+	ploterror,wave,flux,ferr,/xs,/ys
+	oplot,wave,mymodel(0,best_mpfit[0,*]),color=cgcolor('red'),$
+		lines=0,thick=2
+
+	; save result
+	if n_elements(str) eq 0 then begin
+		str = $
+		{pnr:pnr,sigma:sigma,p_mpfit:best_mpfit,chi2:bestnorm}
+	endif else begin
+		str = $
+		[str,{pnr:pnr,sigma:sigma,p_mpfit:best_mpfit,chi2:bestnorm}]
+	endelse
+	
+	endfor
+endfor
+mwrfits,str,'mpfit_err.fits',/create
+
+plotting:
+str = mrdfits('mpfit_err.fits',1)
+; plot line flux errors as a function of P/N and line width
+; [Centroid, Sigma, Area, baseline]
+z = str.p_mpfit[1,2]/str.p_mpfit[0,2] ; dF/F
+x = str.pnr
+y = str.sigma
+n_levels = 10
+levels = exp(range(min(alog(0.02)),max(alog(0.20)),n_levels))
+contour,z,x,y,/irregular,c_charsize=2,c_labels=intarr(n_levels)+1,$
+	xtit='Peak/Noise Ratio',ytit='Line Width/Sigma',tit='dF/F',$
+	yr=[0,20],xr=[0,20],/xs,/ys,levels=levels
+; surface fit to ln(dF/F)
+data = dblarr(3,n_elements(x))
+data[0,*] = x
+data[1,*] = y
+data[2,*] = alog(z)
+result = sfit(data,5,/irregular,kx=kx)
+save,kx,file='mpfit_err.idlsave'
+; evaluate on a new grid
+zzz = exp(poly2d(21,21,kx))
+contour,zzz,levels=levels,/overplot,c_colors=cgcolor('blue')
+; evaluate on original grid
+zz = poly2d(x,y,kx,/irregular)
+contour,exp(zz),x,y,/irregular,levels=levels,c_lines=2,$
+	c_colors=cgcolor('red'),/overplot
+residual = abs(z-exp(zz))/z
+print,'minmax(residual),mean(residual):',minmax(residual),mean(residual)
+; minmax(residual),mean(residual):   1.0843107e-05     0.050770424
+;     0.012430160
+; show legend
+al_legend,['MPFIT','SFIT'],lines=[0,2],textcolor=cgcolor('white'),$
+	color=[cgcolor('white'),cgcolor('red')],/bottom,/left
+save_screen,'mpfit_err.png'
+
+; Sigma Error
+str = mrdfits('mpfit_err.fits',1)
+; plot line flux errors as a function of P/N and line width
+; [Centroid, Sigma, Area, baseline]
+z = str.p_mpfit[1,1]/str.p_mpfit[0,1] ; dsigma/sigma
+x = str.pnr
+y = str.sigma
+n_levels = 10
+levels = exp(range(min(alog(0.02)),max(alog(0.20)),n_levels))
+contour,z,x,y,/irregular,c_charsize=2,c_labels=intarr(n_levels)+1,$
+	xtit='Peak/Noise Ratio',$
+	ytit='Line Width [pixels]',tit='dSigma/Sigma',$
+	yr=[0,20],xr=[0,20],/xs,/ys,levels=levels
+; surface fit to ln(dF/F)
+data = dblarr(3,n_elements(x))
+data[0,*] = x
+data[1,*] = y
+data[2,*] = alog(z)
+result = sfit(data,5,/irregular,kx=kx)
+save,kx,file='mpfit_sigerr.idlsave'
+; evaluate on a new grid
+zzz = exp(poly2d(21,21,kx))
+contour,zzz,levels=levels,/overplot,c_colors=cgcolor('blue')
+; evaluate on original grid
+zz = poly2d(x,y,kx,/irregular)
+contour,exp(zz),x,y,/irregular,levels=levels,c_lines=2,$
+	c_colors=cgcolor('red'),/overplot
+residual = abs(z-exp(zz))/z
+print,'minmax(residual),mean(residual):',minmax(residual),mean(residual)
+; minmax(residual),mean(residual):   1.0843107e-05     0.050770424
+;     0.012430160
+
+; show legend
+al_legend,['MPFIT','SFIT'],lines=[0,2],textcolor=cgcolor('white'),$
+	color=[cgcolor('white'),cgcolor('red')],/bottom,/left
+save_screen,'mpfit_sigerr.png'
+
+end
