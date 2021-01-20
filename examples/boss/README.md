@@ -1,19 +1,25 @@
-IDL commands:
+## To fit a single SDSS/BOSS spectrum
 
+```
 infile = '1237664853103607848.fits'
 linefile = 'emission_lines_setup.txt'
 fit_sdss,infile,linefile=linefile,/verbose,$
 	ssplib='miuscat-thin',mdegree=6,/blr,/ps
+```
 
-Output files:
+## Output files:
 
-The *_spfit.fits file saves the best-fit parameters and errors. Its
-format is defined by the code below. When /BLR is set, the first
+The `*_miuscat-thin.fits` file saves the spec-resolution-matched stellar 
+population synthesis model templates. 
+
+The `*_spfit.fits` file saves the best-fit parameters and errors. Its
+format is defined by the code below. When `/BLR` is set, the first
 extension saves the best-fit result without using broad Balmer lines
-(which corresponds to the figures in *_spfit.eps), and the second
+(which corresponds to the figures in `*_spfit.eps`), and the second
 extension saves the result that include broad Balmer lines (which
-corresponds to the figures in *_spfitbr.ps)
+corresponds to the figures in `*_spfitbr.ps`)
 
+```idl
 fit_results = create_struct($
 	;-fitted emission lines-;
 	'i',emission_setup.i[i_l],'name',emission_setup.name[i_l],$
@@ -46,7 +52,4 @@ fit_results = create_struct($
 	'emis',float(emission),$ ; emission-line model spectrum
 	'neat',spec_neat,$ 	; galaxy spectrum w/ emission-line model removed
 	'embr',emis_br)  	; broad line only model
-
-*_miuscat-thin.fits files save the resolution-matched stellar population synthesis
-model templates. 
-
+```
