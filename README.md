@@ -31,7 +31,7 @@ vi ~/idl/spfit/spfit.csh
 4. INSTALL IDLUTILS 
 ```cs
 cd ~/idl
-svn co https://www.sdss3.org/svn/repo/idlutils/trunk/ idlutils
+svn co https://svn.sdss.org/public/repo/sdss/idlutils/trunk idlutils
 setenv IDLUTILS_DIR $IDL/idlutils
 $IDLUTILS_DIR/bin/evilmake clean
 $IDLUTILS_DIR/bin/evilmake 
@@ -39,7 +39,7 @@ $IDLUTILS_DIR/bin/evilmake
 5. INSTALL IDLSPEC2D
 ```cs
 cd ~/idl
-svn co https://www.sdss3.org/svn/repo/idlspec2d/trunk/ idlspec2d
+svn co https://svn.sdss.org/public/repo/eboss/idlspec2d/trunk/ idlspec2d
 setenv IDLSPEC2D_DIR $IDL/idlspec2d
 $IDLSPEC2D_DIR/bin/evilmake clean
 $IDLSPEC2D_DIR/bin/evilmake 
