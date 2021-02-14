@@ -6,7 +6,7 @@ SPFIT is an IDL package to simultaneous fit stellar continuum and emission lines
 
 ## References
 
-Fu et al. 2018, https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F
+Fu et al. 2018, https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F \
 Steffen et al. 2021, https://arxiv.org/abs/2102.03398 
 
 ## Setup
@@ -20,7 +20,7 @@ git clone https://github.com/fuhaiastro/spfit.git
 add the following commend. This is used to setup correct environment variables when launching IDL *
 ```cs
 vi ~/.tcshrc
-alias spfit 'source ~/idl/spfit/spfit.csh; /Applications/harris/idl/bin/idl -IDL_PROMPT "SPFIT> " -IDL_STARTUP ""'
+alias spfit 'source ~/idl/spfit/spfit.csh; /Applications/harris/idl/bin/idl -IDL_PROMPT "SPFIT> "'
 ```
 3. Edit ~/idl/spfit/spfit.csh 
 
