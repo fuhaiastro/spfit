@@ -28,7 +28,7 @@ ierr = long(0)
 
 ; WARNING: Use the full path when calling the external library
 ;so_file=file_search('./','bvls.so',/FULLY_QUALIFY_PATH)
-external_library = '/Users/fu/idl/contrib/cappellari/bvls/bvls.dylib'
+external_library = file_search('$SPFIT_DIR/pro/contrib/bvls/bvls.dylib',/FULL)
 tmp = CALL_EXTERNAL(external_library, 'bvls', $
         A, M, N, B, BND, X, RNORM, NSETP, W, INDEX, IERR)
 
