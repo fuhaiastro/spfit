@@ -47,6 +47,9 @@ $IDLSPEC2D_DIR/bin/evilmake
 
 ## Examples
 
-Examples for SDSS/BOSS and MaNGA are provided under `spfit/examples/`
+Examples are provided for fitting [SDSS single-fiber
+spectra](https://github.com/fuhaiastro/spfit/tree/main/examples/sdss)
+and [MaNGA
+datacubes](https://github.com/fuhaiastro/spfit/tree/main/examples/manga).
 See the README files in these folders for instructions.
 

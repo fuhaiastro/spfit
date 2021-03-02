@@ -593,6 +593,7 @@ if verb then print,'--> loading & spectral matching template library ...'+ssplib
 mtplfile = mtpldir+basename+'-'+ssplib+'.fits' ; saves the matched template library
 if ~file_test(mtplfile) then begin
 	if verb then print,'--> Matching SSPs ...',mtplfile
+	if ~file_test(mtpldir) then spawn,'mkdir '+mtpldir
 	setup_templates,wave/(1.+objz),ssplib,/matchR,sres_data=sres,ssp_matched=ssp_matched
 	mwrfits,ssp_matched,mtplfile,/create
 endif else begin

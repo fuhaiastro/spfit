@@ -39,6 +39,8 @@ pro fit_sdss, infile, ssplib=ssplib, MH=MH, age=age, linefile=linefile, $
 ; 
 ;-
 
+on_error,2
+
 ; start counting elapsed time
 if keyword_set(verbose) then tic
 
@@ -55,6 +57,7 @@ if ~keyword_set(ganfit) then cmd = 'spfit' else cmd = 'ganfit'
 
 ; Read SDSS/BOSS spectra, which is already in constant log10-lambda steps
 ; Data model: http://dr12.sdss3.org/datamodel/files/BOSS_SPECTRO_REDUX/RUN2D/spectra/PLATE4/spec.html
+if keyword_set(verbose) then print,'--> loading spectrum '+infile
 coadd = mrdfits(infile,1,hdr,/silent)
 flux = coadd.flux ; log10-rebinned, coadded calibrated flux [10-17 ergs/s/cm2/Å]
 var = 1./coadd.ivar ; variance flux
@@ -109,6 +112,10 @@ if keyword_set(verbose) then begin
 	print,'Rest-Frame Wavelength range (templates vs. data), original'
 	print,minmax_tpl,minmax_gal
 end
+if minmax_gal[0] gt minmax_tpl[1] or minmax_gal[1] lt minmax_tpl[0] then begin
+	print,'No overlapping range, skip'
+	return
+endif
 ; compute the overlapping range
 tpl_range = [0.0,0.0]  
 gal_range = [0.0,0.0]
