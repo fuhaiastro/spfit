@@ -751,10 +751,10 @@ for ibin = 0, nbin-1, step do begin
 		pars=fit_results
 		plotfile = plotdir+'/'+string(ibin,f='(i04)')
 		if keyword_set(ps) then begin
-			; generate PS file to exam the quality of the fit
+			; generate EPS file to exam the quality of the fit
 			mylegend = ssplib+' '+basename
 			show_spec_fit,pars,mylegend=mylegend,/ps,$
-				outfile=plotfile+'.ps'
+				outfile=plotfile+'.eps'
 		endif else begin
 			mylegend = ssplib+' '+basename+' bin#:'+strc(ibin)
 			if ibin eq 0 then begin

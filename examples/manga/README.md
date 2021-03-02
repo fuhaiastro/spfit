@@ -4,7 +4,7 @@ fit_manga,7443L,1901L,$
 	infile='manga-7443-1901-LOGCUBE.fits.gz',$
 	drpfile='drpall-v2_7_1.fits',$
 	mdegree=6,outdir='spfit/',mtpldir='spfit_mtpl/',$
-	/nobinning [,/verbose,/overwrite,/saveplot,step=100]
+	/nobinning [,/verbose,/overwrite,/saveplot,/ps,step=100]
 ```
 For a test run, use the options in the square brackets
 

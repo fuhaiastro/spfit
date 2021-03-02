@@ -20,7 +20,7 @@ git clone https://github.com/fuhaiastro/spfit.git
 add the following commend. This is used to setup correct environment variables when launching IDL *
 ```cs
 vi ~/.tcshrc
-alias spfit 'source ~/idl/spfit/spfit.csh; /Applications/harris/idl/bin/idl -IDL_PROMPT "SPFIT> "'
+alias spfit 'source ~/idl/spfit/setup.csh; /Applications/harris/idl/bin/idl -IDL_PROMPT "SPFIT> "'
 ```
 3. Edit ~/idl/spfit/spfit.csh 
 
