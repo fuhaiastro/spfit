@@ -4,6 +4,7 @@ function boxave3d, array, xbin, ybin, zbin
 ;	boxave3d
 ;
 ; Purpose
+;	Box-average a 3D datacube: the 3D version of BOXAVE in AstroLib.
 ; 	Properly handle !NaNs as missing data with mean() and dimensional
 ; 	juggling (http://www.idlcoyote.com/code_tips/rebinmissing.php)
 ; 

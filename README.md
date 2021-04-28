@@ -1,35 +1,35 @@
-# spfit
+# spfit: a spectral fitting tool in IDL
 
-## Introduction
-
-SPFIT is an IDL package to simultaneous fit stellar continuum and emission lines. The package is built upon the Penalized Pixel-Fitting method (pPXF) (Cappellari 2017) and Gas AND Absorption Line Fitting (GANDALF) (Sarzi et al. 2006). For the ease of use, wrappers and examples for modeling SDSS single-fiber spectra and MaNGA IFU datacubes are provided.
+SPFIT is an IDL-based package to simultaneous fit stellar continuum and emission lines. The package is built upon the Penalized Pixel-Fitting method (pPXF) (Cappellari & Emsellem 2004, Cappellari 2017) and Gas AND Absorption Line Fitting (GANDALF) (Sarzi et al. 2006). For the ease of use, wrappers and examples for modeling SDSS single-fiber spectra and MaNGA IFU datacubes are provided.
 
 ## References
 
-Fu et al. 2018, https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F \
-Steffen et al. 2021, https://arxiv.org/abs/2102.03398
+- Cappellari & Emsellem [2004PASP..116..138C](http://adsabs.harvard.edu/abs/2004PASP..116..138C)
+- Sarzi et al. [2006MNRAS.366.1151S](https://ui.adsabs.harvard.edu/abs/2006MNRAS.366.1151S)
+- Cappellari [2017MNRAS.466..798C](https://ui.adsabs.harvard.edu/abs/2017MNRAS.466..798C)
+- Fu et al. [2018ApJ...856...93F](https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F)
+- Steffen et al. [2021ApJ...909..120S](https://ui.adsabs.harvard.edu/abs/2021ApJ...909..120S)
 
-## Setup
+## Install
 
-1. Download SPFIT
+1. Download source code
 ```shell
 cd ~/idl
 git clone https://github.com/fuhaiastro/spfit.git
 ```
-2. Setup C shell environment
-add the following commend. This is used to setup correct environment variables when launching IDL *
+2. Set environmental variables and define start-up command to launch `spfit`.
 ```shell
 vi ~/.tcshrc
 alias spfit 'source ~/idl/spfit/setup.csh; /Applications/harris/idl/bin/idl -IDL_PROMPT "SPFIT> "'
 ```
-3. Edit ~/idl/spfit/spfit.csh
-
-Make sure the appropriate paths are set correctly for your host.
+3. Make sure the appropriate paths are set correctly for your host.
 ```shell
-vi ~/idl/spfit/spfit.csh
-
+vi ~/idl/spfit/setup.csh
+```
+Below is the content of the setup file:
+```shell
 # IDL environment variables and aliases.
-# tested on IDL v8.6 for Mac OSX
+# tested on IDL v8.7.2 for Mac OSX
 setenv EXELIS_DIR /Applications/harris
 setenv IDL_DIR /Applications/harris/idl
 alias harrislicense $IDL_DIR/bin/harrislicense
@@ -41,17 +41,18 @@ setenv IDL_PATH +$IDL_DIR/examples:+$IDL_DIR/lib
 setenv IDL $HOME/idl
 
 # MaNGA
-setenv MANGA_DIR /s1/manga # Data Directory
+setenv MANGA_DIR /s1/manga
 setenv MANGA_SPECTRO_REDUX $MANGA_DIR/spectro/redux/
 setenv MANGADRP_VER MPL-11
 # SPFIT
 setenv SPFIT_DIR $HOME/idl/spfit/
 setenv IDL_PATH ${IDL_PATH}:+$SPFIT_DIR/pro
-# IDLUTILS (includes Astrolib,Coyote,MPFIT)
+# IDLUTILS (includes Astrolib, Coyote, & MPFIT)
 setenv IDLUTILS_DIR $IDL/idlutils
-setenv DUST_DIR $IDL/dust # SFD98 maps
 setenv IDL_PATH ${IDL_PATH}:+$IDLUTILS_DIR/goddard/pro:+$IDLUTILS_DIR/pro
 setenv PATH $IDLUTILS_DIR/bin:$PATH
+# SFD98 Galactic dust maps
+setenv DUST_DIR $IDL/dust
 # IDLSPEC2D
 setenv IDLSPEC2D_DIR $IDL/idlspec2d
 setenv IDL_PATH ${IDL_PATH}:+$IDLSPEC2D_DIR/pro
@@ -64,7 +65,8 @@ mkdir idlutils
 cd idlutils
 svn co https://svn.sdss.org/public/repo/sdss/idlutils/trunk .
 setenv IDL_DIR /Applications/harris/idl
-setenv IDLUTILS_DIR $HOME/idl/idlutils
+setenv IDL $HOME/idl
+setenv IDLUTILS_DIR $IDL/idlutils
 $IDLUTILS_DIR/bin/evilmake clean
 $IDLUTILS_DIR/bin/evilmake
 ```
@@ -78,8 +80,15 @@ setenv IDLSPEC2D_DIR $IDL/idlspec2d
 $IDLUTILS_DIR/bin/evilmake clean
 $IDLUTILS_DIR/bin/evilmake
 ```
+6. Install DUST (Galactic dust maps)
+```shell
+cd ~/idl
+mkdir dust
+cd dust
+svn co https://svn.sdss.org/public/data/sdss/catalogs/dust/trunk/ .
+```
 
-## Examples
+## Demo Examples
 
 Examples are provided for fitting [SDSS single-fiber
 spectra](https://github.com/fuhaiastro/spfit/tree/main/examples/sdss)

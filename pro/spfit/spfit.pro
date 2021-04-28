@@ -469,8 +469,8 @@ fit_results = create_struct($
 	;-best-fit parameters---;
         'Flux',Fgas,'EW',EW,'Vel',Vgas,'Sigma',Sgas,'H3',H3gas,'H4',H4gas,$
 					  ; emission line flux (1d-17 erg/s/cm2)
-					  ; V, sigma (km/s)
-					  ; rest-frame Equivolent Width in Ang
+					  ; Velocity, intrinsic dispersion (km/s)
+					  ; rest-frame Equivalent Width in Ang
         'AoN',AoN,'Sigma_obs',float(sigma_obs),$ ; emission line Amplitude-to-Noise ratio
 					  ; Note: noise calculated from residual spectrum
 					  ; observed line width in pixels
@@ -486,8 +486,8 @@ fit_results = create_struct($
 	'apoly',float(apoly),'apolypars',float(apolypars),$ ; additive polynomial and parameters
 	'mpoly',float(mpoly),'mpolypars',float(mpolypars),$ ; multiplicative polynomial
 	'log10lam',log10lam,$   ; wavelength in rest-frame in log(A)
-	'galaxy_in',galaxyin,$  ; input flux in Flam, observed-frame (1d-17 erg/s/cm2/A)
-	'galaxy',galaxy,$ 	; Flam, rest-frame & Gal dust de-reddened (1d-17 erg/s/cm2/A) 
+	'galaxy_in',galaxyin,$  ; input flux in Flam, observed-frame (1d-17 erg/s/cm2/A/arcsec^2)
+	'galaxy',galaxy,$ 	; fitted Flam, rest-frame & Gal dust de-reddened 
 	'err', error,$ 		; 1-sigma errors of galaxy
 	'good',good,$ 		; mask: good pixels are 1, bad are 0.
 	'best',float(bestfit),$ ; best-fit model (stellar + emission)	

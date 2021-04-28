@@ -5,7 +5,7 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 	ignore_drp3qual=ignore_drp3qual, STEP=step, $
 	NOBINNING=nobinning, DS9REG=ds9reg, regnum=regnum, maskdir=maskdir,$
 	BLR=blr, GANFIT=ganfit, $
-	delete=delete,mtpldir=mtpldir,_EXTRA=extra
+	delete=delete,mtpldir=mtpldir,nospec=nospec,_EXTRA=extra
 ;+
 ; NAME
 ;	FIT_MANGA
@@ -58,6 +58,7 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;	MASKDIR - the directory that keeps the FITS catalog for individual
 ;		plateifu; it must contain RA and Dec tags for the
 ;		objects to be masked out.
+;	/NOSPEC - if set, Plate-IFUdesign_spec.fits is not saved.
 ;	_EXTRA - SPFIT/GANFIT Keywords
 ;
 ; OUTPUT
@@ -65,7 +66,8 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;		ext 1: best-fit pars
 ;		ext 2: RA, Dec, binmap, S/N maps, line names, FITS header w/ WCS info
 ;		ext 3: drpall struct
-;		ext 4: spectral data and models
+;	Plate-IFUdesign_spec.fits or _br_spec.fits (if /BLR) - 
+;		ext 1: spectral data and models
 ;	Plate-IFUdesign_ssplib.fits - spectral resolution matched 
 ;		log10-rebinned SSP templates
 ;	Plate-IFUdesign/#.png or ps (if /saveplot)- 
@@ -463,6 +465,7 @@ for i=0,dim[0]-1 do begin ; loop through all pixels
 		endif
 	endfor
 endfor
+; quit with an error message when S/N is too low
 if max(snrraw) lt 5 then message,'Error: max(S/N) < 5'
 ; utilize covariance matrix for 2x2 binned cube (COV)
 xind = range(0,dim[0]-1) # (fltarr(dim[1])+1) ; index of X-axis
@@ -663,7 +666,7 @@ fmt = '(" '+basename+': ",i4,"/",i4," or ",f5.1,"% done",$,%"\r")'
 ; log10 wavelength arrays
 log10lam = alog10(wave)
 log10lam_tpl = alog10(wave_tpl)
-; start looping through all voronoi bins
+; start looping through all bins
 for ibin = 0, nbin-1, step do begin
 	; find which spaxels belong to this bin
 	ind = where(binmap eq ibin, n_spec)
@@ -695,7 +698,8 @@ for ibin = 0, nbin-1, step do begin
 		if diaCOV eq 0 or totCOV eq 0 then corr=1.0 $
 			else corr = float(sqrt(diaCOV/totCOV))
 	endif else corr = 1.0
-	; S/N = total(S)/sqrt(total(COV)) = <S>/sqrt<N^2> * sqrt(n_spec) * sqrt(diaCOV/totCOV)
+	; S/N = total(S)/sqrt(total(COV)) 
+	;     = <S>/sqrt<N^2> * sqrt(n_spec) * sqrt(diaCOV/totCOV)
 	; so if we set S = <S> (= mean(S)), then
 	; N = sqrt<N^2> / sqrt(n_spec) / sqrt(diaCOV/totCOV) 
 	error = sqrt(mean(var2d,dim=1,/nan)) / sqrt(n_spec) / corr
@@ -784,7 +788,6 @@ tags = tag_names(gpars)
 i1 = where(tags eq 'LAMBDA')
 i2 = where(tags eq 'CHI2NU')
 pars_str = struct_selecttags(gpars,select_tags=tags[i1+1:i2])
-spec_str = struct_selecttags(gpars,select_tags=tags[i2+1:*])
 
 ; compute RA, Dec, X, and Y positions of each bin
 ra = dblarr(nbin)-99
@@ -826,7 +829,11 @@ mwrfits,vbin,outfile             ; [2] vbin - linename, binmap, SNRmap, and WCS 
 mwrfits,drpall,outfile 		 ; [3] drp  - drpall metadata
 
 ; save best-fit model spectra in a separate file
-mwrfits,spec_str,repstr(outfile,'.fits','_spec.fits'),/create  ; [1] spec - observed and best-fit spectra
+; [1] spec - observed and best-fit spectra
+if ~keyword_set(nospec) then begin
+	spec_str = struct_selecttags(gpars,select_tags=tags[i2+1:*])
+	mwrfits,spec_str,repstr(outfile,'.fits','_spec.fits'),/create
+endif
 
 ; print ellapsed time
 theend:

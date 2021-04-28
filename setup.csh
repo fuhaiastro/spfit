@@ -19,9 +19,10 @@ setenv SPFIT_DIR $HOME/idl/spfit/
 setenv IDL_PATH ${IDL_PATH}:+$SPFIT_DIR/pro
 # IDLUTILS (includes Astrolib, Coyote, & MPFIT)
 setenv IDLUTILS_DIR $IDL/idlutils
-setenv DUST_DIR $IDL/dust # SFD98 maps
 setenv IDL_PATH ${IDL_PATH}:+$IDLUTILS_DIR/goddard/pro:+$IDLUTILS_DIR/pro
 setenv PATH $IDLUTILS_DIR/bin:$PATH
+# SFD98 Galactic dust maps
+setenv DUST_DIR $IDL/dust 
 # IDLSPEC2D
 setenv IDLSPEC2D_DIR $IDL/idlspec2d
 setenv IDL_PATH ${IDL_PATH}:+$IDLSPEC2D_DIR/pro
