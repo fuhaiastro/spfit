@@ -1,14 +1,3 @@
-; http://www.iac.es/proyecto/miles/pages/ssp-models.php
-; Model version: 10.0, April 2015 
-; Uniform resolution (FWHM = 2.51 A) from 3465-9469 A with 0.9A dispersion
-; Unit: The total mass of the SSP is 1Mo. 
-; The SSP spectra are given in units of Lo/Mo/Å, Lo = 3.826e33 erg/s
-;
-; Naming convention
-; Spectral Range, IMF type, IMF slope, [M/H], age (Gyr), isochrone
-; ku = Kroupa Universal
-; e.g., MIUSCAT_BaSTI_ku_1.30_fits/Iku1.30Zm0.25T00.0300_iTp0.00_baseFe
-
 tpldir = 'MIUSCAT_BaSTI_ku_1.30_fits'
 ; 636 SSPs, 53 ages * 12 [M/H] * 1 [a/Fe]
 
