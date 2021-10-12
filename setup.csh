@@ -11,7 +11,7 @@ setenv IDL_PATH +$IDL_DIR/examples:+$IDL_DIR/lib
 setenv IDL $HOME/idl
 
 # MaNGA 
-setenv MANGA_DIR /s1/manga
+setenv MANGA_DIR /Volumes/manga
 setenv MANGA_SPECTRO_REDUX $MANGA_DIR/spectro/redux/
 setenv MANGADRP_VER MPL-11
 # SPFIT

@@ -50,7 +50,7 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;	/GANFIT - set to use GANFIT instead of SPFIT (Default is SPFIT)
 ;	/DELETE - set to remove logcube file to save space
 ;	MTPLDIR - directory that saves the matched SSPLIB file for each
-;		plate-ifu (default = $MANGA_DIR/hfdap/TAG/spfit_mtpl/)
+;		plate-ifu (default = $MANGA_DIR/spfit/TAG/SSPLIB/)
 ;	REGNUM - integer scaler giving the region number. When set, it
 ; 		will add the number to the plateifu for the output file.
 ;		It requires that (1) the DS9reg folder is set, and (2) the
@@ -174,14 +174,22 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;		The only difference is that these outside polygons will
 ;		have RA/Dec = -99 while low S/N regions will still have
 ;		valid RA/Dec.
-;	2019/07/26 - added MASKDIR option
+;	2019/07/26 - added MASKDIR optional keyword
 ;		- corrected how the new CRPIX is calculated (=(CRPIX1+0.5)/2)
-;	2019/12/12 - save model spectra in a separate output file (*_spec.fits)
-;	2021/01/19 - added optional keywords INFILE & DRPFILE 
+;	2019/12/12 - save model spectra in a separate output file
+;		(*_spec.fits) unless /NOSPEC is set
+;	2021/01/19 - added optional keywords INFILE, DRPFILE
+;	2021/07/21 - modified default MTPLDIR folder and matched
+;		template filename
+;	2021/07/23 - abort entire cube if bin #0 doesn't contain spaxel
+;		or have insufficient S/N, because all fitting parameters
+;		are defined when fitting bin #0
 ;-
 
 ; error action
 ON_ERROR, 2
+; ensure write_png works
+device,decompose=0,retain=2
 
 ; set up default parameters
 IF ~keyword_set(linefile) then $
@@ -200,7 +208,7 @@ if ~keyword_set(rdir) then rdir = getenv('MANGA_SPECTRO_REDUX') ; DRP output dir
 ; default increment: fit every bin
 if ~keyword_set(step) then step = 1
 ; default matched SSP templates directory
-if ~keyword_set(mtpldir) then mtpldir = getenv('MANGA_DIR')+'/hfdap/'+tag+'/spfit_mtpl/' 
+if ~keyword_set(mtpldir) then mtpldir = getenv('MANGA_DIR')+'/spfit/'+tag+'/'+ssplib+'/' 
 
 ; set default target S/N
 ; skip bin if SNR < targetSN, below which we don't trust the fit anymore
@@ -258,8 +266,7 @@ if keyword_set(BLR) then outfile = repstr(outfile,'.fits','-br.fits')
 
 if file_test(outfile) then begin ; if outfile already exist
 	if ~keyword_set(overwrite) then begin
-		print,'Already done! Skipping '+basename
-		goto,theend
+		message,'Already done! Skipping '+basename
 	endif else begin
 		if verb then print,'Overwriting '+basename
 	endelse
@@ -323,46 +330,6 @@ var[ind] = 1./ivar[ind]
 ; object coordinates
 ra = drpall.objra
 dec = drpall.objdec
-
-;;;;;;;;;;;;;;;
-; RETIRED in Oct 2016, because masking f/g stars is DONE IN MPL-5
-;;;;;;;;;;;;;;;
-;; mask out other objects in the field
-;; query SDSS catalog within 1'x1' box
-;scatfile = getenv('SPFIT_DIR')+'/cats/sdss/'+basename+'.fits'
-;if ~file_test(scatfile) then begin ; check if already exist
-;	if verb then print,'--> querying SDSS catalog to mask out f/g stars'
-;	sdsscat = QueryVizier('SDSS-DR9',[ra,dec],[1.,1.])
-;	mwrfits,sdsscat,scatfile,/create
-;endif else begin
-;	if verb then print,'--> reading SDSS catalog to mask out f/g stars'
-;	sdsscat = mrdfits(scatfile,1,/silent)
-;endelse
-;if size(sdsscat,/type) eq 8 then begin
-;	; select primary sample to avoid duplicated sources
-;	; also choose only stars brighter than 20 mags in any band and at dis > 3"
-;	dis = sphdist(sdsscat.raj2000,sdsscat.dej2000,ra,dec,/deg)*3600
-;	sdssmag = [[sdsscat.umag],[sdsscat.gmag],[sdsscat.rmag],$
-;		[sdsscat.imag],[sdsscat.zmag]]
-;	idx = where(sdsscat.mode eq 1 and sdsscat.cl eq 6 and $
-;		min(sdssmag,dim=2,/nan) lt 20 and dis gt 3)
-;	if idx[0] ne -1 then begin
-;		sdsscat = sdsscat[idx]
-;		adxy,hdr,sdsscat.raj2000,sdsscat.dej2000,x,y
-;		; check if within the IFU field of view
-;		dim = (size(flux))[1:3]
-;		ind = where(x gt 0 and x lt dim[0]-1 and y gt 0 and y lt dim[1]-1,ct)
-;		for i=0,ct-1 do begin
-;			dist_ellipse,im,dim[0:1],x[ind[i]],y[ind[i]],$
-;				1d,0.0,/double
-;			im3d = congrid([[[im]],[[im]]],dim[0],dim[1],dim[2])
-;			s = where(im3d le 4.0/0.5) ; w/i 4" radius
-;			mask[s] = sdss_flagval('manga_drp3pixmask','forestar')
-;		endfor
-;		; delete these variables
-;		;undefine,im3d,im
-;	endif
-;endif
 
 ; mask out objects based on object catalog that contain RA & Dec of
 ; objects to be masked out
@@ -466,7 +433,7 @@ for i=0,dim[0]-1 do begin ; loop through all pixels
 	endfor
 endfor
 ; quit with an error message when S/N is too low
-if max(snrraw) lt 5 then message,'Error: max(S/N) < 5'
+if max(snrraw) lt 5 then message,'Error: max(S/N) < 5, skip '+basename
 ; utilize covariance matrix for 2x2 binned cube (COV)
 xind = range(0,dim[0]-1) # (fltarr(dim[1])+1) ; index of X-axis
 yind = (fltarr(dim[0])+1) # range(0,dim[1]-1) ; index of Y-axis
@@ -572,7 +539,7 @@ endif else begin
 endelse
 
 ; skip this plateifu if maximum SNR is lower than target
-if max(sn_sorted) lt targetSN then goto,theend
+if max(sn_sorted) lt targetSN then message,'max(S/N) < targetSN, skipping'
 
 ; save 2D binning map
 binmap = intarr(dim[0],dim[1])-1
@@ -592,8 +559,7 @@ if ct gt 0 then var[ind] = var0[ind]
 ; - match the spectral resolution to the data in rest-frame
 ; - resample the SSPs in log10 w/ the same dlogLam as the data
 if verb then print,'--> loading & spectral matching template library ...'+ssplib
-;mtplfile = '$MANGA_DIR/hfdap/ssp_matched/'+ssplib+'/'+basename+'.fits' ; saves the matched template library
-mtplfile = mtpldir+basename+'-'+ssplib+'.fits' ; saves the matched template library
+mtplfile = mtpldir+basename+'.fits' ; saves the matched template library
 if ~file_test(mtplfile) then begin
 	if verb then print,'--> Matching SSPs ...',mtplfile
 	if ~file_test(mtpldir) then spawn,'mkdir '+mtpldir
@@ -671,8 +637,11 @@ for ibin = 0, nbin-1, step do begin
 	; find which spaxels belong to this bin
 	ind = where(binmap eq ibin, n_spec)
 	; skip bin if no spec in this bin or SNR < targetSN 
-	if n_spec eq 0 or sn_sorted[ibin] lt targetSN then continue
-	;note that sn_sorted[ibin] equals snrbin[where(binmap eq ibin)] 
+	; note that sn_sorted[ibin] equals snrbin[where(binmap eq ibin)] 
+	if n_spec eq 0 or sn_sorted[ibin] lt targetSN then begin
+		if ibin eq 0 then message,'Bin #0 has zero spaxels '+$
+			'or does not meet target S/N - Abort '+basename else continue
+	endif
 	
 	; find (x,y) indices
 	ind2d = array_indices(binmap,ind)

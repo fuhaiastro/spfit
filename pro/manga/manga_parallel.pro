@@ -41,7 +41,7 @@ if ~keyword_set(sequential) then begin
 		; grab an idle bridge
 		bridge = get_idle_bridge(bridges)
 		; once got an idle bridge show progress
-		if verb then print,i,plates[i],ifus[i],f='(i4,1x,i5,1x,i5)'
+		if verb then print,i+1,plates[i],ifus[i],f='(i4,1x,i5,1x,i5)'
 		; define input parameter
 		bridge->setvar, 'plate', plates[i]
 		bridge->setvar, 'ifu', ifus[i]

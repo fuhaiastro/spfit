@@ -35,11 +35,14 @@ pro fit_sdss, infile, ssplib=ssplib, MH=MH, age=age, linefile=linefile, $
 ;
 ; HISTORY
 ;	2015/8/6 - Written - Hai Fu (UIowa)
-;
+;	2021/10/8 - Now generating badpix mask using ivar array instead
+;		of using and_mask. Using the latter causes the code to
+;		discard large chunks of spectra in ~10% of the cases
 ; 
 ;-
 
 on_error,2
+device,decompose=0,retain=2
 
 ; start counting elapsed time
 if keyword_set(verbose) then tic
@@ -61,22 +64,33 @@ if keyword_set(verbose) then print,'--> loading spectrum '+infile
 coadd = mrdfits(infile,1,hdr,/silent)
 flux = coadd.flux ; log10-rebinned, coadded calibrated flux [10-17 ergs/s/cm2/Å]
 var = 1./coadd.ivar ; variance flux
-mask = coadd.and_mask ; 0 - good, others - bad 
-wave = 10.^coadd.loglam ; log10-rebinned vacuum wavelength in AA
-; the wavelengths are also shifted such that measured velocities will be 
+;mask = coadd.and_mask ; 0 - good, others - bad ; disabled Oct 8 2021
+mask = coadd.ivar eq 0 ; 0 - good, 1 - bad
+wave = 10.^coadd.loglam ; convert log10-rebinned vacuum wavelength to Ang
+; Note:
+; 	the wavelengths are also shifted such that measured velocities will be 
 ; relative to the solar system barycentric at the mid-point of each 15-minute exposure
+
+; Array of the sigma width of the LSF in unit of pixels 
+;	WDISP = FWHM/2.355/dL 
+; where dL is the dispersion in units of Angstrom per pixel. 
+; WDISP is used to calculate the spectral resolution array R.
 ;
-; wdisp: wavelength dispersion in pixel=dloglam units
-; wavelength array (L) has been log10-rebinned, with a constant 1e-4 dex spacing
-; i.e., dlogL = dL/(ln10*L) = 0.0001, therefore, dL = dlogL*ln10*L in Angstrom
-; FWHM = 2.355 * WDISP * dL = 2.355 * WDISP * dlogL*ln10*L
-; R = L/FWHM = 1/(2.355 * WDISP * dlogL * ln10)
+; For a log10-rebinned wavelength array (L)
+; 	dlogL = dL/(ln10*L) = const.
+; we have
+;	dL = dlogL * ln10 * L
+; given also that 
+; 	FWHM = 2.355 * WDISP * dL 
+;	     = 2.355 * WDISP * (dlogL*ln10*L)
+; we finally have
+; 	R = L/FWHM 
+;         = 1/(2.355 * WDISP * dlogL * ln10)
 lstep_gal = mean(coadd[1:*].loglam-coadd.loglam) ; = dlogL 
 sres = 1/(2.355 * alog(10) * lstep_gal * coadd.wdisp)
 ; get galaxy information from spAll structure
 spall = mrdfits(infile,2,/silent)
 objz = spall.Z 		; pipeline redshift
-objvdisp = spall.vdisp 	; stellar velocity dispersion in km/s
 objRA = spall.plug_ra 	; RA (deg)
 objDec = spall.plug_dec ; Dec (deg)
 

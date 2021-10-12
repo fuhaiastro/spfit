@@ -80,9 +80,11 @@ str = ['z = '+string(pars.redshift,f='(f6.4)'),$
 	'E(B-V)='+string(strmid(strcompress(round((pars.EBmV)[0]*1000.)/1000.,/remove_all),8,6,/reverse))]
 al_legend,str,/top,/right,/normal,outline_color=foncolor,textcolor=foncolor,background=bkgcolor
 al_legend,[mylegend],/top,/left,/normal,outline_color=foncolor,textcolor=foncolor,background=bkgcolor
+
 ; show residuals in subpanel
 plot,l_rf,res/err,psym=3,xr=lrange_rf_0,yminor=-1,xticklen=0.08,$
 	xtitle='',ytit=textoidl('\Delta/\sigma'),yr=[-10,10],/xs,/ys,pos=posr,/noerase
+; show bad pixels
 ind = where(good le 1e-6,ct)
 if ct gt 0 then $
 	oplot,l_rf[ind],res[ind]/err[ind],psym=4,syms=0.2,color=cgcolor('red')
