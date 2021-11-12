@@ -25,7 +25,7 @@ if keyword_set(skip) and n_elements(outputs) eq n_elements(plates) $
 if verb then begin
 	tic 
 	print,' # of galaxy cubes to fit: ',n_elements(plates)
-	print,cmd,extra
+	print,cmd+extra
 endif
 
 if ~keyword_set(sequential) then begin
@@ -41,7 +41,7 @@ if ~keyword_set(sequential) then begin
 		; grab an idle bridge
 		bridge = get_idle_bridge(bridges)
 		; once got an idle bridge show progress
-		if verb then print,i+1,plates[i],ifus[i],f='(i4,1x,i5,1x,i5)'
+		if verb then print,i+1,plates[i],ifus[i],f='(i,1x,i,1x,i)'
 		; define input parameter
 		bridge->setvar, 'plate', plates[i]
 		bridge->setvar, 'ifu', ifus[i]
@@ -58,7 +58,7 @@ endif else begin
 		; if exist then skip
 		if toskip then if file_test(outputs[i]) then continue
 		; show progress
-		if verb then print,i,plates[i],ifus[i],f='(i4,1x,i5,1x,i5)'
+		if verb then print,i,plates[i],ifus[i],f='(i,1x,i,1x,i)'
 		xx = execute(cmd+', plates[i], ifus[i]'+extra)
 	endfor
 endelse

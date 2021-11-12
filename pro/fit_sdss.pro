@@ -25,7 +25,8 @@ pro fit_sdss, infile, ssplib=ssplib, MH=MH, age=age, linefile=linefile, $
 ; 	/ps - save final fit result as a PS file; if set to 0, save a PNG file
 ;	/BLR - include AGN broad emission lines
 ;	/GANFIT - use GANFIT instead of SPFIT
-;	_EXTRA - SPFIT/GANFIT Keywords
+;	_EXTRA - take extra SPFIT/GANFIT/SHOW_SPEC_FIT Keywords
+;		e.g., /lowc to make low contrast diagnostic plots
 ;
 ; OUTPUT
 ;	infile_ssplib.fits - spectral resolution matched log10-rebinned SSP 
@@ -94,6 +95,9 @@ objz = spall.Z 		; pipeline redshift
 objRA = spall.plug_ra 	; RA (deg)
 objDec = spall.plug_dec ; Dec (deg)
 
+if keyword_set(verbose) then print,'--> redshift = ',objz
+if keyword_set(verbose) then print,'--> linefile = '+linefile
+
 ; obtain foreground Galactic extinction if not supplied as an input
 if ~keyword_set(ebv_gal) then begin
 	glactc,objRA,objDec,2000.,gl,gb,1,/degree
@@ -123,6 +127,8 @@ wave_tpl = ssp_matched[0].wave ; Unit: AA
 minmax_tpl = minmax(wave_tpl)
 minmax_gal = minmax(wave/(1.+objz))
 if keyword_set(verbose) then begin
+	print,'Observed Wavelength range (data)'
+	print,minmax(wave)
 	print,'Rest-Frame Wavelength range (templates vs. data), original'
 	print,minmax_tpl,minmax_gal
 end
@@ -221,11 +227,12 @@ xx = execute(cmd+',galaxy,error,log10lam,objz,flam_tpl,log10lam_tpl,'+$
 plotfile = outdir+basename+'_'+cmd
 mylegend = ssplib+' '+basename
 if keyword_set(ps) then begin
-	show_spec_fit,fit_results,mylegend=mylegend,/ps,outfile=plotfile+'.eps'
+	show_spec_fit,fit_results,mylegend=mylegend,/ps,$
+		outfile=plotfile+'.eps',_EXTRA=extra
 endif else begin
 	;device,decomp=0 
 	window,0,xs=600*1.5,ys=400*1.5
-	show_spec_fit,fit_results,mylegend=mylegend
+	show_spec_fit,fit_results,mylegend=mylegend,_EXTRA=extra
 	save_screen,plotfile+'.png'
 endelse
 ; repeat for broad line fit
@@ -234,11 +241,11 @@ if keyword_set(BLR) then begin
   if keyword_set(ps) then begin
   	; generate PS file to exam the quality of the fit
   	show_spec_fit,pars,mylegend=mylegend,/ps,$
-  		outfile=plotfile+'br.eps'
+  		outfile=plotfile+'br.eps',_EXTRA=extra
   endif else begin
   	;device,decomp=0 
   	window,0,xs=600*1.5,ys=400*1.5
-  	show_spec_fit,pars,mylegend=mylegend
+  	show_spec_fit,pars,mylegend=mylegend,_EXTRA=extra
   	save_screen,plotfile+'br.png'
   endelse
 endif

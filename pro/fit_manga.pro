@@ -1,11 +1,11 @@
-pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
-	SSPLIB=ssplib, LINEFILE=linefile, $
-	OUTDIR=outdir, TAG=tag, RDIR=rdir, VERBOSE=verbose, OVERWRITE=overwrite, $
-	targetSN=targetSN, SAVEPLOT=saveplot, PS=ps,$
-	ignore_drp3qual=ignore_drp3qual, STEP=step, $
-	NOBINNING=nobinning, DS9REG=ds9reg, regnum=regnum, maskdir=maskdir,$
-	BLR=blr, GANFIT=ganfit, $
-	delete=delete,mtpldir=mtpldir,nospec=nospec,_EXTRA=extra
+pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, SSPLIB=ssplib, $
+	MTPLDIR=mtpldir, LINEFILE=linefile, PREBIN=prebin, $
+	OUTDIR=outdir, TAG=tag, RDIR=rdir, VERBOSE=verbose,$
+	OVERWRITE=overwrite, targetSN=targetSN, SAVEPLOT=saveplot,$
+	PS=ps, IGNORE_DRP3QUAL=ignore_drp3qual, STEP=step, $
+	NOBINNING=nobinning, DS9REG=ds9reg, $
+	MASKDIR=maskdir, BLR=blr, GANFIT=ganfit, DELETE=delete,$
+	NOSPEC=nospec, _EXTRA=extra
 ;+
 ; NAME
 ;	FIT_MANGA
@@ -18,15 +18,19 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ; 	plate, ifu - [Integers] MaNGA plate number and IFU design
 ;
 ; OPTIONAL INPUT
-;	infile - input file name, including path
+;	infile - input MaNGA DRP LOGCUBE filename, including path
 ;		Default: rdir+tag+'/'+strc(plate)+'/stack/manga-'+
 ;			strc(plate)+'-'+strc(ifu)+'-LOGCUBE.fits*'
-;	drpfile - input DRPALL file
+;	drpfile - input MaNGA DRPALL metadata file
 ;		Default: rdir+tag+'/drpall*.fits'
 ; 	ssplib - string defines the SSP library to be used. 
 ;		Curent options include 'miuscat', 'miuscat-thin', and 'm11_stelib', 
 ;		both use Kroupa IMF. (default: miuscat-thin)
+;	mtpldir - directory that saves the matched SSPLIB file for each
+;		plate-ifu (default = $MANGA_DIR/spfit/TAG/SSPLIB/)
 ;	linefile - emission line setup file
+;	prebin - integer, if > 1, pre-bin datacube in spatial dimension. 
+;		Default: prebin=2 for 2x2 binning to reduce covariances
 ;	outdir - output directory (default: ./spfit/)
 ;	tag - DRP tag number (default: $MANGADRP_VER)
 ;	rdir - DRP redux directory (default: $MANGA_SPECTRO_REDUX)
@@ -42,40 +46,59 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;	step - integer, giving the number of bins to skip in each FOR
 ;		loop iteration. Set to a high number for quick testing.
 ;		Default: 1 (fitting every bin)
-;	/nobinning - if set, then do not perform adaptive spatial binning
-;	DS9reg - the directory that keeps the DS9 polygon region file
-;		regions are defined in image coordinates *after 2x2 binning*
-;		e.g., 'reg1arc/' (Note: must include backslash at the end)
+;	/nobinning - if set, do not perform adaptive spatial binning
+;	DS9reg - string, e.g., 'reg1arc/' (Note: must include backslash at the end)
+;		Name of the folder that keeps the extraction aperture
+;		file of each PLATEIFU, which can be a list in two formats:
+;		(a) DS9 polygon regions given in image coordinates: polygon(x1,y1,...,xn,yn) 
+;		(b) elliptical apertures given in RA (deg), Dec (deg), major radius (arcsec), 
+;		major/minor axis ratio, and PA of major axis (deg)
 ;	/BLR - set to fit with broad emission lines
 ;	/GANFIT - set to use GANFIT instead of SPFIT (Default is SPFIT)
-;	/DELETE - set to remove logcube file to save space
-;	MTPLDIR - directory that saves the matched SSPLIB file for each
-;		plate-ifu (default = $MANGA_DIR/spfit/TAG/SSPLIB/)
-;	REGNUM - integer scaler giving the region number. When set, it
-; 		will add the number to the plateifu for the output file.
-;		It requires that (1) the DS9reg folder is set, and (2) the
-;		corresponding region file exists (e.g., 8248-1902-3.reg) 
+;	/DELETE - set to remove logcube file after fitting (to save space)
 ;	MASKDIR - the directory that keeps the FITS catalog for individual
 ;		plateifu; it must contain RA and Dec tags for the
 ;		objects to be masked out.
 ;	/NOSPEC - if set, Plate-IFUdesign_spec.fits is not saved.
-;	_EXTRA - SPFIT/GANFIT Keywords
+;	/ORIGINAL - if set, do not perform 2x2 binning of the original cubes
+;	_EXTRA - extra keywords to be passed on to SPFIT or GANFIT, e.g., 
+;		/QUIET to suppress screen output from SPFIT
+;		MDEGREE= to set the degree of the multiplicative
+;		Legendre polynoimal that is used to adjust the continuum shape
 ;
 ; OUTPUT
-;	Plate-IFUdesign.fits or _br.fits (if /BLR) - 
+;	OUTDIR/Plate-IFUdesign(-br).fits (if /BLR) - 
 ;		ext 1: best-fit pars
 ;		ext 2: RA, Dec, binmap, S/N maps, line names, FITS header w/ WCS info
 ;		ext 3: drpall struct
-;	Plate-IFUdesign_spec.fits or _br_spec.fits (if /BLR) - 
+;	OUTDIR/Plate-IFUdesign(-br)_spec.fits - 
 ;		ext 1: spectral data and models
-;	Plate-IFUdesign_ssplib.fits - spectral resolution matched 
-;		log10-rebinned SSP templates
-;	Plate-IFUdesign/#.png or ps (if /saveplot)- 
+;	MTPLDIR/Plate-IFUdesign.fits - 
+;		spectral resolution matched log10-rebinned SSP templates
+;	OUTDIR/Plate-IFUdesign(-br)/#.png or ps (if /saveplot)- 
 ;		summary figure illustrating the quality of the fit
 ;
+; EXAMPLE
+;	The following test command fits only the brightest spaxel in a 
+;	single datacube by setting STEP to a large number. It makes a
+;	plot on the screen showing the quality of the fit and saves it. 
+;	Fitting broad Balmer lines is enabled and the emission line 
+;	setup file can be edited to change the number of lines to fit or
+;	to tie certain lines' kinematics:
+;
+;	fit_manga,7968,3701,step=1000,$
+;		infile ='data/manga-7968-3701-LOGCUBE.fits',$
+;		drpfile='data/drpall-v3_1_1.fits',$
+;		ssplib ='miuscat-thin',$
+;		mtpldir='data/miuscat-thin/',$
+;		linefil='linesetup.txt',$
+;		outdir ='ifufit_blr/',$
+;		mdegree=6,/blr,/nobinning,/ignore_drp3qual,$
+;		/verbose,/overwrite,/saveplot,/quiet
+;
 ; HISTORY
-;	2015/5/15 HF - Written
-;	2015/7/31-8/5 HF - made quite a number of changes 
+;	2015/5/15 - Written - Hai Fu (UIowa)
+;	2015/7/31-8/5 - made quite a number of changes 
 ;		- instead of passing linefile for gandalf_fit to read,
 ;		  now we construct emission_setup structure from
 ;		  linefile when processing the 1st bin and passing it to
@@ -151,8 +174,6 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;		the mean coordinates of each bin
 ;		- changed REGNUM parameter from string to integer and
 ;		added REGNUM to the output filename
-;		- TODO: need to think about how to run manga_parallel with
-;		the REGNUM option
 ;	2019/07/17 - When DS9reg is set, do not remove bins w/ S/N=0
 ;		before generating the 2D binmap and 2D SNR map, and do not 
 ;		sort bins using distance to ObjRA/Dec. This way 
@@ -164,7 +185,7 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;		the SPFIT FOR loop and will have a null gpars structure.
 ; 	2019/07/17 - now set three default targetSN, depending on the
 ;		binning scheme
-; 	2019/07/25 - added new NREG keywork in mask_polygon to count the
+; 	2019/07/25 - added new NREG keyword in mask_polygon to count the
 ;		number of input polygons and use NREG to set NBIN (instead
 ;		of using max(segmap). This way, even if some polygons lie
 ;		outside of the image, the output still matches the input 
@@ -181,9 +202,20 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, $
 ;	2021/01/19 - added optional keywords INFILE, DRPFILE
 ;	2021/07/21 - modified default MTPLDIR folder and matched
 ;		template filename
-;	2021/07/23 - abort entire cube if bin #0 doesn't contain spaxel
+;	2021/07/23 - quit program if bin #0 doesn't contain any spaxels
 ;		or have insufficient S/N, because all fitting parameters
 ;		are defined when fitting bin #0
+;	2021/10/15 - added /ORIGINAL option to fit DRP cube without 2x2 binning
+;	2021/10/29 
+;		- removed REGNUM keyword
+;		- input DS9 region file can now be a list of: 
+;		  (a) DS9 polygon regions given in image coordinates "polygon(x1,y1,...,xn,yn)" 
+;		  (b) elliptical apertures given in RA, Dec, major radius, 
+;			major/minor axis ratio, PA of major axis 
+;		- added NSPAXEL tag in output structure
+;		- converted the unit of input and output spectrum of each bin 
+;		  from f_lambda per spaxel to f_lambda per arcsec^2
+;		- replaced /ORIGINAL keyword with PREBIN keyword
 ;-
 
 ; error action
@@ -195,6 +227,7 @@ device,decompose=0,retain=2
 IF ~keyword_set(linefile) then $
 	linefile = getenv('SPFIT_DIR')+'/pro/emission_lines_setup.txt'
 if ~keyword_set(ssplib) then ssplib = 'miuscat-thin' ; default SSP templates
+if ~keyword_set(prebin) then prebin = 2 ; prebin factor
 if ~keyword_set(tag) then tag = getenv('MANGADRP_VER')	; DRP tag
 if ~keyword_set(ganfit) then cmd = 'spfit' else cmd = 'ganfit'
 ; default output directory
@@ -259,9 +292,7 @@ if ~keyword_set(ignore_drp3qual) and $
 	message,'DRP flagged Critical Failure, skip '+basename
 
 ; check if output file already exist
-if keyword_set(ds9reg) and keyword_set(regnum) then $
-	outfile = outdir+basename+'-'+strc(regnum)+'.fits' $
-	else outfile = outdir+basename+'.fits'
+outfile = outdir+basename+'.fits'
 if keyword_set(BLR) then outfile = repstr(outfile,'.fits','-br.fits') 
 
 if file_test(outfile) then begin ; if outfile already exist
@@ -297,6 +328,9 @@ if verb then print,'--> E(B-V) Galactic: ', ebv_gal, sxpar(hdr,'EBVGAL')
 ; get the dimensions of the cube
 dim = (size(flux))[1:3]
 
+; save the middle-channel mask in output file
+bitmask0 = mask[*,*,dim[2]/2]
+
 ; evaluate covariance matrix for original cube size
 ; https://trac.sdss.org/wiki/MANGA/TRM/TRM_MPL-5/metadata#CorrelationMatrices
 shape = repstr(repstr(sxpar(hcovs,'covshape'),'(',''),')','')
@@ -306,30 +340,11 @@ idxi = covs.indxi_c1+covs.indxi_c2*dim[0] ; 2d to 1d index
 idxj = covs.indxj_c1+covs.indxj_c2*dim[0]
 covF[idxi,idxj] = covs.rhoij
 covF[idxj,idxi] = covs.rhoij
-; transform the COV through binning (2x2 by default)
-bin = 2 ; for 2x2 binning
-; Binned Data (S) = T ## Input Data (F)
-T = dblarr(dim[0]*dim[1],dim[0]*dim[1]/bin^2) 
-for xbin=0,dim[0]/bin-1 do begin
-	for ybin=0,dim[1]/bin-1 do begin
-		tmp = intarr(dim[0],dim[1])
-		tmp[xbin*bin:(xbin+1)*bin-1,ybin*bin:(ybin+1)*bin-1] = 1
-		ind = where(tmp eq 1)
-		T[ind, xbin+ybin*dim[0]/bin] = 1d/bin^2
-	endfor
-endfor
-; compute the transformed COV matrix
-; COV(S) = COV(T ## F) = T ## COV(F) ## transpose(T)
-cov = T ## covF ## transpose(T)
 
 ; get VAR, which is easier to coadd than IVAR
 var = ivar*0 + !values.f_nan 
 ind = where(ivar ne 0)
 var[ind] = 1./ivar[ind]
-
-; object coordinates
-ra = drpall.objra
-dec = drpall.objdec
 
 ; mask out objects based on object catalog that contain RA & Dec of
 ; objects to be masked out
@@ -352,66 +367,109 @@ if keyword_set(maskdir) then begin
 	endif
 endif
 
-; replace values with NaNs for pixels flagged as bad
+; simplify 3D mask array (0 - good, 1 - bad)
+; mask out only the following pixels
 ; see idl/idlutils/data/sdss/sdssMaskbits.par for bitmask definitions
-; this step is to avoid bad-pixel contamination in the 2x2 binning stage 
 ind = where(ivar eq 0 $ 
 	or ((mask and sdss_flagval('manga_drp3pixmask','nocov')) ne 0) $
 	;or ((mask and sdss_flagval('manga_drp3pixmask','lowcov')) ne 0) $
 	;or ((mask and sdss_flagval('manga_drp3pixmask','forestar')) ne 0) $
 	;or ((mask and sdss_flagval('manga_drp3pixmask','donotuse')) ne 0) $
 	or ((mask and sdss_flagval('manga_drp3pixmask','deadfiber')) ne 0),ct)
-; save a single channel bitmask
-bitmask0 = mask[*,*,dim[2]/2]
 ; simplify mask - either 0 (good pixel) or NaN (bad pixel)
 ; this step is necessary for binning the mask cubes to 1" pixels
 mask *= 0.0 ; long -> float
-; save original cube for later use
-flux0 = flux 
-var0 = var
-; replace masked pixels with NaN so that they're considered missing data
-if ct gt 0 then begin
-	mask[ind] = !values.f_nan
-	flux[ind] = !values.f_nan
-	var[ind] = !values.f_nan
-endif
+if ct gt 0 then mask[ind] = 1
 
-if verb then print,'--> 2x2 rebinning '
-; Rebin datacube from 0.5" spaxels to 1.0" spaxels to reduce covariance
-; REBIN uses neighborhood averaging when minifying, but does not handle NAN properly
-; BOXAVE3D: neighborhood averaging, treating NANs as missing data 
-flux = boxave3d(flux,2,2,1)*4.0 ; x4 to preserve total flux of the datacube
-var = boxave3d(var,2,2,1)*16.0	; x16 so that S/N remains the same after rebinning
-				; neighboring spaxels so correlated that
-				; S/N do not increase for 2x2 binning 
-mask = boxave3d(mask,2,2,1)
-; bin the original cubes
-flux0 = boxave3d(flux0,2,2,1)*4.0
-var0 = boxave3d(var0,2,2,1)*16.0
-; replace !NaN back to 1 (= bad pixel)
-mask[where(mask ne 0)] = 1
-; mask out bad telluric lines, observed-frame, vacuum wavelength
+; Pre-binning
+if prebin eq 1 then begin
+   ; no pre-binning
+   if verb then print,'--> No prebinning (original 0.5" spaxels) '
+   ; use original covariance matrix
+   cov = covF
+endif else begin
+   ; Pre-bin to reduce covariance
+   if verb then print,'--> prebinning datacube by '+string(prebin,f='(a)')+'x'
+   bin = prebin ; bin size along each spatial dimension
+
+   ; save cubes before NaN replacement for later use
+   flux0 = flux 
+   var0 = var
+   
+   ; replace values with NaNs for pixels flagged as bad
+   ; this step is to avoid bad-pixel contamination in the 2x2 binning stage 
+   ; replace masked pixels with NaN so that they're considered missing data
+   ind = where(mask eq 1,ct)
+   if ct gt 0 then begin
+   	mask[ind] = !values.f_nan
+   	flux[ind] = !values.f_nan
+   	var[ind]  = !values.f_nan
+   endif
+
+   ; transform the original COV through binning 
+   ; Binned Data (S) = T ## Input Data (F)
+   T = dblarr(dim[0]*dim[1],dim[0]*dim[1]/bin^2) 
+   for xbin=0,dim[0]/bin-1 do begin
+   	for ybin=0,dim[1]/bin-1 do begin
+   		tmp = intarr(dim[0],dim[1])
+   		tmp[xbin*bin:(xbin+1)*bin-1,ybin*bin:(ybin+1)*bin-1] = 1
+   		ind = where(tmp eq 1)
+   		T[ind, xbin+ybin*dim[0]/bin] = 1d/bin^2
+   	endfor
+   endfor
+   ; compute the transformed COV matrix
+   ; COV(S) = COV(T ## F) = T ## COV(F) ## transpose(T)
+   cov = T ## covF ## transpose(T)
+
+   ; REBIN uses neighborhood averaging when minifying, but does not handle NAN properly
+   ; BOXAVE3D: neighborhood averaging, treating NANs as missing data 
+   flux = boxave3d(flux,bin,bin,1)*bin^2 ; x4 to preserve total flux of the datacube
+   var = boxave3d(var,bin,bin,1)*bin^4  ; x16 so that S/N remains the same after rebinning
+   				   ; neighboring spaxels so correlated that
+   				   ; S/N do not increase for 2x2 binning 
+   mask = boxave3d(mask,bin,bin,1)
+   dim = (size(flux))[1:3] ; reevaluate dim array after binning
+   ; bin the cubes before NaN replacement
+   flux0 = boxave3d(flux0,bin,bin,1)*bin^2
+   var0 = boxave3d(var0,bin,bin,1)*bin^4
+   
+   ; update header keywords
+   sxaddpar,hdr,'cd1_1',sxpar(hdr,'cd1_1')*bin
+   sxaddpar,hdr,'cd2_2',sxpar(hdr,'cd2_2')*bin
+   ; In WCS, the center of the lower-left pixel is (1.0,1.0)
+   ; after 2x2 binning, the center of the lower-left pixel (1.0,1.0) 
+   ; corresponds to the upper-right corner of the original first pixel (1.5,1.5)
+   ; so we need to add 0.5 before dividing by 2
+   sxaddpar,hdr,'crpix1',(sxpar(hdr,'crpix1')+0.5)/bin
+   sxaddpar,hdr,'crpix2',(sxpar(hdr,'crpix2')+0.5)/bin
+
+   ; replace !NaN with original flux/var values to fill in the data of
+   ; masked area. Use the mask array instead of NaNs to indicate bad pixels
+   ind = where(~finite(flux),ct)
+   if ct gt 0 then flux[ind] = flux0[ind]
+   ind = where(~finite(var),ct)
+   if ct gt 0 then var[ind] = var0[ind]
+
+   ; replace mask !NaN back to 1 (= bad pixel)
+   ind = where(mask ne 0,ct)
+   if ct gt 0 then mask[ind] = 1
+endelse
+
+; get spaxel size in arcsec/pixel
+pixsize = sxpar(hdr,'CD2_2')*3600. ; arcsec/pixel
+
+; additional masking in spectral dimension
+; telluric lines in observed-frame wavelength
 hw = 10.0 ; wavelength range to mask (A)
 skylines = [5579.,5895] ; 6300,6363
 for i=0,n_elements(skylines)-1 do begin
 	ind = where(wave gt skylines[i]-hw and wave lt skylines[i]+hw)
 	mask[*,*,ind] = 1
 endfor
-; mask out first 40 pixels
-dim = (size(flux))[1:3] ; reevaluate dim array after binning
+; mask out the bluest 40 pixels
 mask[*,*,0:40] = 1
 
-; update header keywords
-sxaddpar,hdr,'cd1_1',sxpar(hdr,'cd1_1')*2
-sxaddpar,hdr,'cd2_2',sxpar(hdr,'cd2_2')*2
-; In WCS, the center of the lower-left pixel is (1.0,1.0)
-; after 2x2 binning, the center of the lower-left pixel (1.0,1.0) 
-; corresponds to the upper-right corner of the original first pixel (1.5,1.5)
-; so we need to add 0.5 before dividing by 2
-sxaddpar,hdr,'crpix1',(sxpar(hdr,'crpix1')+0.5)/2.
-sxaddpar,hdr,'crpix2',(sxpar(hdr,'crpix2')+0.5)/2.
-
-; compute tot(S/N) in Ha-NII region, over ~56 spectral channels
+; compute the S/N map, defined as tot(S/N) in Ha-NII region, over ~56 spectral channels
 ; (velscale=69 km/s for lstep_gal = 1e-4 in log10)
 ; dV = z*c ~= ln(lambda1/lambda0)*c = log10(lambda1/lambda0)*ln(10)*c
 w1 = 6525 & w2 = 6610 ; r.f wave range = +/-2000 km/s or +/-28 pixels 
@@ -434,7 +492,12 @@ for i=0,dim[0]-1 do begin ; loop through all pixels
 endfor
 ; quit with an error message when S/N is too low
 if max(snrraw) lt 5 then message,'Error: max(S/N) < 5, skip '+basename
-; utilize covariance matrix for 2x2 binned cube (COV)
+
+; Adaptive Binning: Voronoi / DS9 (Polygon or Aperture) / No binning
+; for each good spaxel, record its x, y position, and its assigned bin number 
+; for each bin, record its xNode, yNode, and S/N.
+; the former gives the 2D binmap, while the latter gives the binned S/N map
+; and helps sort the bins based on its distance from the object center
 xind = range(0,dim[0]-1) # (fltarr(dim[1])+1) ; index of X-axis
 yind = (fltarr(dim[0])+1) # range(0,dim[1]-1) ; index of Y-axis
 if ~keyword_set(nobinning) and ~keyword_set(ds9reg) and $
@@ -450,7 +513,8 @@ if ~keyword_set(nobinning) and ~keyword_set(ds9reg) and $
 	noise = noiraw[igood]
 	x = xind[igood]
 	y = yind[igood]
-	; take the corresponding sub-COV-matrix 
+	; utilizes covariance matrix (COV)
+	; evaluating the sub-COV-matrix of good spaxels
 	covsub = dblarr(n_elements(igood),n_elements(igood))
 	for i=0,n_elements(igood)-1 do covsub[i,*] = cov[igood[i],igood]
 	manga_voronoi_2d_binning, x, y, signal, noise, targetSN*1.5, binnum,$ ; size X
@@ -458,18 +522,39 @@ if ~keyword_set(nobinning) and ~keyword_set(ds9reg) and $
 		COV=covsub,/QUIET
 	if verb then print,'--> Number of Voronoi bins = ',n_elements(sn)
 endif else if keyword_set(ds9reg) then begin
-	; Use DS9 region to generate a binmap
-	if keyword_set(regnum) then $ 
-		regfile = ds9reg+basename+'-'+strc(regnum)+'.reg' $
-	   else regfile = ds9reg+basename+'.reg'
-	if verb then print,'--> Bin with DS9 region file: ',regfile
+	; Use DS9 region to generate a binmap 
+	regfile = ds9reg+basename+'.reg'
+	if verb then print,'--> Bin with extraction aperture file: ',regfile
 	; set a low targetSN so that all regions get fit
 	if verb then print,'--> minimum SN = ',targetSN	
-	; test if file exist
+	; test if region file exist
 	if ~file_test(regfile) then message,'Region file cannot be found!'
-	; 1st polygon filled w/ 1, 2nd polygon w/ 2, outside pixels w/ 0
-	segmap = intarr(dim[0],dim[1])
-	mask_polygon,segmap,regfile,value=0,nreg=nreg
+	; is it a polygon region file or a list of apertures?
+	openr,lun,regfile,/get_lun
+	readf,lun,firstline
+	free_lun,lun
+	; 1st region filled w/ 1, 2nd w/ 2, etc.
+	; pixels outside of all regions filled w/ 0
+	segmap = intarr(dim[0],dim[1]) ; initial segmentation map
+	if strmid(firstline,0,7) eq 'polygon' then begin
+		; use mask_polygon to get segmentation map
+		if verb then print,'--> Polygon DS9 region file'
+		mask_polygon,segmap,regfile,value=0,nreg=nreg
+	endif else begin
+		; read RA (deg), Dec (deg), semi-major axis (arcsec),
+		; major/minor axis ratio (a/b), Position Angle of major axis
+		; (deg) measured East of North
+		if verb then print,'--> Aperture list file'
+		readcol,regfile,ra,dec,rad,a2b,PA,f='f,f,f,f,f',comment='#'
+		nreg = n_elements(ra)
+		; (x,y) from ADXY assumes middle of the 1st px as 0.0
+		adxy,hdr,ra,dec,xc,yc
+		for i=0,nreg-1 do begin
+			dist_ellipse,im,dim[0:1],xc[i],yc[i],a2b[i],PA[i]
+			s = where(im lt rad[i]/pixsize)
+			segmap[s] = i+1
+		endfor
+	endelse
 	; evaluate igood, sn, NODEs, binnum arrays, which are required in
 	; subsequent analysis
 	; igood: index of spaxels in segmentation map
@@ -501,7 +586,7 @@ endif else if keyword_set(ds9reg) then begin
 	endfor
 endif else begin
 	; No binning
-	if verb then print,'--> No binning, minimum SN = ',targetSN
+	if verb then print,'--> No Voronoi or Region binning, minimum SN = ',targetSN
 	; evaluate igood, sn, NODEs, binnum arrays, which are required in
 	; subsequent analysis
 	igood = where(snrraw ge targetSN,ct)
@@ -516,16 +601,21 @@ endif else begin
 	binnum = indgen(ct)
 endelse
 
+; skip plateifu if maximum SNR is lower than target
+if max(sn) lt targetSN then message,'max(S/N) < targetSN, skipping'
+
+; sort the bins based on distance to object center
 if keyword_set(ds9reg) then begin
-	; do not reorder if using DS9 region, so that the output file
-	; matches that of the input DS9 region file
+	; do not sort if using DS9reg, so that apertures in 
+	; the output file match those in the input DS9 file
 	sn_sorted = sn
 	binnum_sorted = binnum
 	nbin = n_elements(sn)
 endif else begin
-	; reorder bin # from closest to farthest from object center
-	; note that the brightest pixel may not be the target galaxy
-	adxy,hdr,ra,dec,x_ctr,y_ctr
+	; for Voronoi and no-binning
+	; reorder bin # from closest to farthest from object center,
+	; although the brightest pixel may not be at object coordinates
+	adxy,hdr,drpall.objra,drpall.objdec,x_ctr,y_ctr
 	dis = (xNode-x_ctr)^2+(yNode-y_ctr)^2
 	sidx = sort(dis)
 	; apply the index
@@ -538,24 +628,14 @@ endif else begin
 	endfor
 endelse
 
-; skip this plateifu if maximum SNR is lower than target
-if max(sn_sorted) lt targetSN then message,'max(S/N) < targetSN, skipping'
-
-; save 2D binning map
+; generate 2D binning map
 binmap = intarr(dim[0],dim[1])-1
 binmap[igood] = binnum_sorted
-; save 2D binned S/N map
+; generate 2D binned S/N map
 snrbin = fltarr(dim[0],dim[1])-1
 for i=0,nbin-1 do snrbin[where(binmap eq i)] = sn_sorted[i]
 
-; replace !NaN with original flux/var values to fill in the data of
-; masked area. Use the mask array instead of NaNs to indicate bad pixels
-ind = where(~finite(flux),ct)
-if ct gt 0 then flux[ind] = flux0[ind]
-ind = where(~finite(var),ct)
-if ct gt 0 then var[ind] = var0[ind]
-
-; load templates
+; load SSP templates
 ; - match the spectral resolution to the data in rest-frame
 ; - resample the SSPs in log10 w/ the same dlogLam as the data
 if verb then print,'--> loading & spectral matching template library ...'+ssplib
@@ -632,9 +712,15 @@ fmt = '(" '+basename+': ",i4,"/",i4," or ",f5.1,"% done",$,%"\r")'
 ; log10 wavelength arrays
 log10lam = alog10(wave)
 log10lam_tpl = alog10(wave_tpl)
+; initial null arrays for bin info
+nspx = dblarr(nbin)-99
+ra   = dblarr(nbin)-99
+dec  = dblarr(nbin)-99
+xbin = dblarr(nbin)-99
+ybin = dblarr(nbin)-99
 ; start looping through all bins
 for ibin = 0, nbin-1, step do begin
-	; find which spaxels belong to this bin
+	; use 2D binmap to find spaxels of each bin
 	ind = where(binmap eq ibin, n_spec)
 	; skip bin if no spec in this bin or SNR < targetSN 
 	; note that sn_sorted[ibin] equals snrbin[where(binmap eq ibin)] 
@@ -648,6 +734,14 @@ for ibin = 0, nbin-1, step do begin
 	pix_x = reform(ind2d[0,*])
 	pix_y = reform(ind2d[1,*])
 
+	; save # of spaxels in each bin and its mean position in (x,y) and (RA,Dec)
+	nspx[ibin] = n_spec
+	xbin[ibin] = mean(ind2d[0,*])
+	ybin[ibin] = mean(ind2d[1,*])
+	xyad,hdr,xbin[ibin],ybin[ibin],bin_ra,bin_dec
+	ra[ibin] = bin_ra
+	dec[ibin] = bin_dec	
+
 	; combine log10 rebinned data
 	galaxy2d = fltarr(n_spec,dim[2])
 	var2d = fltarr(n_spec,dim[2])
@@ -657,7 +751,7 @@ for ibin = 0, nbin-1, step do begin
 		var2d[i,*] = var[pix_x[i],pix_y[i],*]
 		bitmask2d[i,*] = mask[pix_x[i],pix_y[i],*]
 	endfor
-	; use MEAN to preserve surface brightness
+	; use MEAN to preserve surface brightness (unit: f_lambda per spaxel)
 	galaxy = mean(galaxy2d,dim=1,/nan)
 	if ~keyword_set(nobinning) and n_spec gt 1 then begin
 		diaCOV = total(COV[ind,ind]) ; diagnal elements only, i.e., 
@@ -669,9 +763,12 @@ for ibin = 0, nbin-1, step do begin
 	endif else corr = 1.0
 	; S/N = total(S)/sqrt(total(COV)) 
 	;     = <S>/sqrt<N^2> * sqrt(n_spec) * sqrt(diaCOV/totCOV)
-	; so if we set S = <S> (= mean(S)), then
+	; so if we set S = <S> (= mean(S)), then noise is:
 	; N = sqrt<N^2> / sqrt(n_spec) / sqrt(diaCOV/totCOV) 
 	error = sqrt(mean(var2d,dim=1,/nan)) / sqrt(n_spec) / corr
+	; convert from f_lambda per spaxel to f_lambda per arcsec^2
+	galaxy /= pixsize^2
+	error /= pixsize^2
 	; bad pixel if more than half of the spaxels in a bin are bad
 	bitmask = round(total(bitmask2d,1) / n_spec)
 	; mask pixels w/ infinite errors
@@ -721,12 +818,11 @@ for ibin = 0, nbin-1, step do begin
 	
 	; show fitting results
 	if keyword_set(saveplot) then begin
-		pars=fit_results
 		plotfile = plotdir+'/'+string(ibin,f='(i04)')
 		if keyword_set(ps) then begin
 			; generate EPS file to exam the quality of the fit
 			mylegend = ssplib+' '+basename
-			show_spec_fit,pars,mylegend=mylegend,/ps,$
+			show_spec_fit,fit_results,mylegend=mylegend,/ps,$
 				outfile=plotfile+'.eps'
 		endif else begin
 			mylegend = ssplib+' '+basename+' bin#:'+strc(ibin)
@@ -734,7 +830,7 @@ for ibin = 0, nbin-1, step do begin
 				device,decomp=0 
    				window,0,xs=1200,ys=800
    			endif
-			show_spec_fit,pars,mylegend=mylegend
+			show_spec_fit,fit_results,mylegend=mylegend
 			save_screen,plotfile+'.png'
 		endelse
 	endif
@@ -752,53 +848,39 @@ for ibin = 0, nbin-1, step do begin
 	if verb then print,f=fmt,ibin+1,nbin,100.*(ibin+1)/nbin
 endfor
 
-; split gpars into three chuncks
+; VBIN: stores RA, Dec, X, and Y positions of each bin, the binmap, 
+;	emission line info, and FITS header w/ WCS
+; emission line info
+linename = strtrim(gpars[0].name,2)+strc(round(gpars[0].lambda))
+linewave = gpars[0].lambda
+vbin = {RA:ra,DEC:dec,X:xbin,Y:ybin,NSPAXEL:nspx,SNR:sn_sorted,$ ; 1D arrays, dim: # of bins
+	snrraw:snrraw, bitmask:bitmask0,$ ; 2D arrays of the same dimension as the datacube
+	badfrac:badfrac, binmap:binmap, snrbin:snrbin, $
+	linename:linename,linewave:linewave, $ ; names and wavelengths of fitted emission lines
+	hdr:hdr} ; FITS header w/ updated WCS (after pre-binning)
+
+; Split gpars (SPFIT result) into two chuncks
+; 1) PARS_STR - LAMBDA-CHI2NU: best-fit model parameters
+; 2) SPEC_STR - REDSHIFT-EMBR: input spectra and best-fit models
 tags = tag_names(gpars)
 i1 = where(tags eq 'LAMBDA')
 i2 = where(tags eq 'CHI2NU')
 pars_str = struct_selecttags(gpars,select_tags=tags[i1+1:i2])
-
-; compute RA, Dec, X, and Y positions of each bin
-ra = dblarr(nbin)-99
-dec = ra 
-xbin = ra
-ybin = ra
-for kk=0,nbin-1 do begin
-	ind = where(binmap eq kk,ct)
-	if ct eq 0 then continue
-	xy = array_indices(binmap,ind)
-	xbin[kk] = mean(xy[0,*])
-	ybin[kk] = mean(xy[1,*])
-	xyad,hdr,xbin[kk],ybin[kk],bin_ra,bin_dec
-	ra[kk] = bin_ra
-	dec[kk] = bin_dec	
-endfor
-; emission line info
-linename = strtrim(gpars[0].name,2)+strc(round(gpars[0].lambda))
-linewave = gpars[0].lambda
-; struct to save binmaps, SNR maps, etc.
-vbin = {RA:ra,DEC:dec,X:xbin,Y:ybin,SNR:sn_sorted,$ ; 1D arrays, dim: # of bins
-	snrraw:snrraw, bitmask:bitmask0,$ ; 2D arrays
-	badfrac:badfrac, binmap:binmap, snrbin:snrbin, $
-	linename:linename,linewave:linewave, $ ; fitted emission lines
-	hdr:hdr} ; FITS header w/ updated WCS
-
 ; add tags to pars_str
 toadd = mrd_struct(['RA','Dec','SNR','redshift'],$
 	['-99d','-99d','-99.','-99.'],n_elements(gpars))
-toadd.RA = ra
+toadd.RA  = ra
 toadd.Dec = dec
 toadd.SNR = sn_sorted
 toadd.redshift = gpars.redshift
 pars_str = struct_combine(toadd,pars_str)
 
-; save best-fit pars and metadata
+; save best-fit pars 
 mwrfits,pars_str,outfile,/create ; [1] pars - emline and SSP pars
+; save metadata
 mwrfits,vbin,outfile             ; [2] vbin - linename, binmap, SNRmap, and WCS header
 mwrfits,drpall,outfile 		 ; [3] drp  - drpall metadata
-
-; save best-fit model spectra in a separate file
-; [1] spec - observed and best-fit spectra
+; save input and model spectra in a separate file unless /nospec is set
 if ~keyword_set(nospec) then begin
 	spec_str = struct_selecttags(gpars,select_tags=tags[i2+1:*])
 	mwrfits,spec_str,repstr(outfile,'.fits','_spec.fits'),/create

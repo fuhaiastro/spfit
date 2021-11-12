@@ -29,40 +29,46 @@
 ; 
 ;-
 pro manga_saveplot, plate, ifu, INDIR=indir, OUTDIR=outdir, $
-	STEP=step, PS=ps, BLR=blr
+	STEP=step, PS=ps, BLR=blr, _EXTRA=extra
+
+; error action
+ON_ERROR, 2
 
 if ~keyword_set(step) then step = 1
-if ~keyword_set(indir) then indir = '$MANGA_DIR/hfdap/spfit'
+if ~keyword_set(indir) then $
+	indir = getenv('MANGA_DIR')+'/spfit/'+getenv('MANGADRP_VER')
 if ~keyword_set(outdir) then outdir = indir
 if ~file_test(outdir) then spawn,'mkdir '+outdir
-
-; input directory - where the HFDAP products are saved
 if ~keyword_set(BLR) then basename = strc(plate)+'-'+strc(ifu) $
 	else basename = strc(plate)+'-'+strc(ifu)+'-br'
-vbin_file = file_search(indir+'/'+basename+'.fits',count=ct)
-if ct eq 1 then gpars = mrdfits(vbin_file,1,/silent) else return
+
+; load best-fit pars and models
+pars = mrdfits(indir+'/'+basename+'.fits',1,/silent)
+spec = mrdfits(indir+'/'+basename+'_spec.fits',1,/silent)
 
 ; make a directory to save screenshots
 plotdir = outdir+'/'+basename 
 if ~file_test(plotdir) then spawn,'mkdir '+plotdir else spawn,'rm -f '+plotdir+'/*'
 
-; start looping through all voronoi bins
-for ibin = 0, n_elements(gpars)-1, step do begin
-	fit_results = gpars[ibin]	
+; generate a plot for all bins
+for ibin = 0, n_elements(spec)-1, step do begin
+	fit_results = struct_combine(pars[ibin],spec[ibin])
 	; save fitting results
 	plotfile = plotdir+'/'+string(ibin,f='(i04)')
 	mylegend = basename+' bin#:'+strc(ibin)
 	if keyword_set(ps) then begin
 		; generate PS file to exam the quality of the fit
-		show_spec_fit,fit_results,$
-			mylegend=mylegend,/ps,outfile=plotfile+'.ps'
+		show_spec_fit,fit_results,mylegend=mylegend,/ps,$
+			outfile=plotfile+'.eps', _EXTRA=extra
 	endif else begin
 		if ibin eq 0 then begin
-			device,decomp=0 
-   			window,0,xs=600*2.0,ys=400*2.0
+   			; ensure write_png works
+			device,decompose=0,retain=2
+			; then open a graphic window
+			window,0,xs=600*2.0,ys=400*2.0
    		endif
-		show_spec_fit,fit_results,$
-			mylegend=mylegend
+		show_spec_fit,fit_results,mylegend=mylegend,$
+			_EXTRA=extra
 		save_screen,plotfile+'.png'
 	endelse
 endfor
