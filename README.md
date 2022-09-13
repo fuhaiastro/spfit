@@ -5,7 +5,7 @@ SPFIT is an
 package to simultaneous fit models of stellar continuum and emission
 lines to galaxy spectra. The intial solution is found with [pPXF -
 Penalized
-Pixel-Fitting](https://www-astro.physics.ox.ac.uk/~cappellari/software/#ppxf))
+Pixel-Fitting](https://www-astro.physics.ox.ac.uk/~cappellari/software/#ppxf)
 and the optimization of the final solution uses [MPFIT - Robust
 non-linear least squares curve
 fitting](https://pages.physics.wisc.edu/~craigm/idl/fitting.html). For
