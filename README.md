@@ -19,7 +19,15 @@ with macOS and Bash shell.
 - Steffen et al. [2021ApJ...909..120S](https://ui.adsabs.harvard.edu/abs/2021ApJ...909..120S)
 - Fu et al. [2018ApJ...856...93F](https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F)
 
-## Install
+## Demo Examples
+
+Examples are provided for fitting [SDSS single-fiber
+spectra](https://github.com/fuhaiastro/spfit/tree/main/examples/sdss)
+and [MaNGA
+datacubes](https://github.com/fuhaiastro/spfit/tree/main/examples/manga).
+See the README files in these folders for instructions.
+
+## Installation Guide
 
 1. Download source code
 ```shell
@@ -91,11 +99,3 @@ mkdir dust
 cd dust
 svn co https://svn.sdss.org/public/data/sdss/catalogs/dust/trunk/ .
 ```
-
-## Demo Examples
-
-Examples are provided for fitting [SDSS single-fiber
-spectra](https://github.com/fuhaiastro/spfit/tree/main/examples/sdss)
-and [MaNGA
-datacubes](https://github.com/fuhaiastro/spfit/tree/main/examples/manga).
-See the README files in these folders for instructions.
