@@ -4,6 +4,6 @@ PRO ls
 ; scaling images
 ;-
 
-spawn, 'ls'
+spawn, 'ls -GF'
 
 END

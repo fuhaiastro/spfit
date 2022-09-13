@@ -49,9 +49,11 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, SSPLIB=ssplib, $
 ;	/nobinning - if set, do not perform adaptive spatial binning
 ;	DS9reg - string, e.g., 'reg1arc/' (Note: must include backslash at the end)
 ;		Name of the folder that keeps the extraction aperture
-;		file of each PLATEIFU, which can be a list in two formats:
-;		(a) DS9 polygon regions given in image coordinates: polygon(x1,y1,...,xn,yn) 
-;		(b) elliptical apertures given in RA (deg), Dec (deg), major radius (arcsec), 
+;		file of each PLATEIFU, which can be either 
+;		(1) a segmentation map FITS file ('plateifu_seg.fits') or 
+;		(2) a text list ('plateifu.reg') in the following two formats:
+;		(2a) DS9 polygon regions given in image coordinates: polygon(x1,y1,...,xn,yn) 
+;		(2b) elliptical apertures given in RA (deg), Dec (deg), major radius (arcsec), 
 ;		major/minor axis ratio, and PA of major axis (deg)
 ;	/BLR - set to fit with broad emission lines
 ;	/GANFIT - set to use GANFIT instead of SPFIT (Default is SPFIT)
@@ -60,7 +62,6 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, SSPLIB=ssplib, $
 ;		plateifu; it must contain RA and Dec tags for the
 ;		objects to be masked out.
 ;	/NOSPEC - if set, Plate-IFUdesign_spec.fits is not saved.
-;	/ORIGINAL - if set, do not perform 2x2 binning of the original cubes
 ;	_EXTRA - extra keywords to be passed on to SPFIT or GANFIT, e.g., 
 ;		/QUIET to suppress screen output from SPFIT
 ;		MDEGREE= to set the degree of the multiplicative
@@ -216,12 +217,13 @@ pro fit_manga, plate, ifu, INFILE=infile, DRPFILE=drpfile, SSPLIB=ssplib, $
 ;		- converted the unit of input and output spectrum of each bin 
 ;		  from f_lambda per spaxel to f_lambda per arcsec^2
 ;		- replaced /ORIGINAL keyword with PREBIN keyword
+;	2022/01/24
+;		- added DS9reg support for using segmentation maps to define
+;		  extraction apertures
 ;-
 
 ; error action
 ON_ERROR, 2
-; ensure write_png works
-device,decompose=0,retain=2
 
 ; set up default parameters
 IF ~keyword_set(linefile) then $
@@ -398,7 +400,6 @@ endif else begin
    
    ; replace values with NaNs for pixels flagged as bad
    ; this step is to avoid bad-pixel contamination in the 2x2 binning stage 
-   ; replace masked pixels with NaN so that they're considered missing data
    ind = where(mask eq 1,ct)
    if ct gt 0 then begin
    	mask[ind] = !values.f_nan
@@ -493,7 +494,7 @@ endfor
 ; quit with an error message when S/N is too low
 if max(snrraw) lt 5 then message,'Error: max(S/N) < 5, skip '+basename
 
-; Adaptive Binning: Voronoi / DS9 (Polygon or Aperture) / No binning
+; Binning Options: Voronoi / DS9reg (Polygon or Aperture) / No binning
 ; for each good spaxel, record its x, y position, and its assigned bin number 
 ; for each bin, record its xNode, yNode, and S/N.
 ; the former gives the 2D binmap, while the latter gives the binned S/N map
@@ -522,39 +523,55 @@ if ~keyword_set(nobinning) and ~keyword_set(ds9reg) and $
 		COV=covsub,/QUIET
 	if verb then print,'--> Number of Voronoi bins = ',n_elements(sn)
 endif else if keyword_set(ds9reg) then begin
-	; Use DS9 region to generate a binmap 
-	regfile = ds9reg+basename+'.reg'
-	if verb then print,'--> Bin with extraction aperture file: ',regfile
-	; set a low targetSN so that all regions get fit
-	if verb then print,'--> minimum SN = ',targetSN	
-	; test if region file exist
-	if ~file_test(regfile) then message,'Region file cannot be found!'
-	; is it a polygon region file or a list of apertures?
-	openr,lun,regfile,/get_lun
-	readf,lun,firstline
-	free_lun,lun
-	; 1st region filled w/ 1, 2nd w/ 2, etc.
-	; pixels outside of all regions filled w/ 0
-	segmap = intarr(dim[0],dim[1]) ; initial segmentation map
-	if strmid(firstline,0,7) eq 'polygon' then begin
-		; use mask_polygon to get segmentation map
-		if verb then print,'--> Polygon DS9 region file'
-		mask_polygon,segmap,regfile,value=0,nreg=nreg
+	; if segmentation FITS image is provided 
+	; In binmap, empty area = -1 (to match bin index); 
+	; In segmap, empty area = 0 (to match Sextractor style);
+	; so segmap equals binmap+1
+	segfile = ds9reg+basename+'_seg.fits'
+	if file_test(segfile) then begin
+		if verb then print,'--> Bin with segmentation map: ',segfile
+		segmap0 = mrdfits(segfile,0,hseg0,/silent)
+		; align it with the MaNGA cube
+		hastrom,segmap0,hseg0,segmap,hseg,hdr,interp=0
+		; keep output and input consistent by using original
+		; segmap to define the number of segments
+		nreg = max(segmap0)
 	endif else begin
-		; read RA (deg), Dec (deg), semi-major axis (arcsec),
-		; major/minor axis ratio (a/b), Position Angle of major axis
-		; (deg) measured East of North
-		if verb then print,'--> Aperture list file'
-		readcol,regfile,ra,dec,rad,a2b,PA,f='f,f,f,f,f',comment='#'
-		nreg = n_elements(ra)
-		; (x,y) from ADXY assumes middle of the 1st px as 0.0
-		adxy,hdr,ra,dec,xc,yc
-		for i=0,nreg-1 do begin
-			dist_ellipse,im,dim[0:1],xc[i],yc[i],a2b[i],PA[i]
-			s = where(im lt rad[i]/pixsize)
-			segmap[s] = i+1
-		endfor
+	; otherwise, use DS9 polygon region or aperture list to generate a segmentation map 
+		regfile = ds9reg+basename+'.reg'
+		if verb then print,'--> Bin with extraction aperture file: ',regfile
+		; set a low targetSN so that all regions get fit
+		if verb then print,'--> minimum SN = ',targetSN	
+		; quit if region file doesn't exist
+		if ~file_test(regfile) then message,'Region file cannot be found!'
+		; is it a polygon region file or a list of apertures?
+		openr,lun,regfile,/get_lun
+		readf,lun,firstline
+		free_lun,lun
+		; 1st region filled w/ 1, 2nd w/ 2, etc.
+		; pixels outside of all regions filled w/ 0
+		segmap = intarr(dim[0],dim[1]) ; initial segmentation map
+		if strmid(firstline,0,7) eq 'polygon' then begin
+			; use mask_polygon to get segmentation map
+			if verb then print,'--> Polygon DS9 region file'
+			mask_polygon,segmap,regfile,value=0,nreg=nreg
+		endif else begin
+			; read RA (deg), Dec (deg), semi-major axis (arcsec),
+			; major/minor axis ratio (a/b), Position Angle of major axis
+			; (deg) measured East of North
+			if verb then print,'--> Aperture list file'
+			readcol,regfile,ra,dec,rad,a2b,PA,f='f,f,f,f,f',comment='#'
+			nreg = n_elements(ra)
+			; (x,y) from ADXY assumes middle of the 1st px as 0.0
+			adxy,hdr,ra,dec,xc,yc
+			for i=0,nreg-1 do begin
+				dist_ellipse,im,dim[0:1],xc[i],yc[i],a2b[i],PA[i]
+				s = where(im lt rad[i]/pixsize)
+				segmap[s] = i+1
+			endfor
+		endelse
 	endelse
+	
 	; evaluate igood, sn, NODEs, binnum arrays, which are required in
 	; subsequent analysis
 	; igood: index of spaxels in segmentation map
@@ -628,7 +645,7 @@ endif else begin
 	endfor
 endelse
 
-; generate 2D binning map
+; generate 2D binning map (empty = -1)
 binmap = intarr(dim[0],dim[1])-1
 binmap[igood] = binnum_sorted
 ; generate 2D binned S/N map
@@ -725,8 +742,15 @@ for ibin = 0, nbin-1, step do begin
 	; skip bin if no spec in this bin or SNR < targetSN 
 	; note that sn_sorted[ibin] equals snrbin[where(binmap eq ibin)] 
 	if n_spec eq 0 or sn_sorted[ibin] lt targetSN then begin
-		if ibin eq 0 then message,'Bin #0 has zero spaxels '+$
-			'or does not meet target S/N - Abort '+basename else continue
+		if ibin eq 0 then begin
+			message,'Abort '+basename+': Bin #0 has no spaxels '+$
+				'or does not meet target S/N '
+		endif else begin
+			print,'Skip Bin #',strtrim(string(ibin),2),$
+				': no spaxels or does not meet target S/N - ',$
+				strtrim(string(targetSN),2)
+			continue
+		endelse
 	endif
 	
 	; find (x,y) indices
@@ -823,15 +847,16 @@ for ibin = 0, nbin-1, step do begin
 			; generate EPS file to exam the quality of the fit
 			mylegend = ssplib+' '+basename
 			show_spec_fit,fit_results,mylegend=mylegend,/ps,$
-				outfile=plotfile+'.eps'
+				outfile=plotfile+'.eps',_EXTRA=extra
 		endif else begin
 			mylegend = ssplib+' '+basename+' bin#:'+strc(ibin)
-			if ibin eq 0 then begin
-				device,decomp=0 
-   				window,0,xs=1200,ys=800
-   			endif
-			show_spec_fit,fit_results,mylegend=mylegend
-			save_screen,plotfile+'.png'
+			;if ibin eq 0 then begin
+			;	device,decomp=0 
+   			;	window,0,xs=1200,ys=800
+   			;endif
+			show_spec_fit,fit_results,mylegend=mylegend,$
+				outfile=plotfile+'.png',_EXTRA=extra
+			;save_screen,plotfile+'.png'
 		endelse
 	endif
 

@@ -467,13 +467,13 @@ fit_results = create_struct($
 	'i',emission_setup.i[i_l],'name',emission_setup.name[i_l],$
 	'lambda',emission_setup.lambda[i_l],$
 	;-best-fit parameters---;
-        'Flux',Fgas,'EW',EW,'Vel',Vgas,'Sigma',Sgas,'H3',H3gas,'H4',H4gas,$
-					  ; emission line flux (1d-17 erg/s/cm2)
-					  ; Velocity, intrinsic dispersion (km/s)
-					  ; rest-frame Equivalent Width in Ang
-        'AoN',AoN,'Sigma_obs',float(sigma_obs),$ ; emission line Amplitude-to-Noise ratio
-					  ; Note: noise calculated from residual spectrum
-					  ; observed line width in pixels
+   'Flux',Fgas,'EW',EW,'Vel',Vgas,'Sigma',Sgas,'H3',H3gas,'H4',H4gas,$
+	   ; emission line flux (1d-17 erg/s/cm2)
+	   ; Velocity, intrinsic dispersion (km/s)
+	   ; rest-frame Equivalent Width in Ang
+   'AoN',AoN,'Sigma_obs',float(sigma_obs),$ ; emission line Amplitude-to-Noise ratio
+	   ; Note: noise calculated from residual spectrum
+	   ; observed line width in pixels
 	'EBmV',float(EBmV),$		; intrinsic reddening and err
 	'kinstar',float(kinstar),$	; stellar kinematics
 	'Weights',float(w_ssp),$       ; weights of SSP templates in units of 1e-30

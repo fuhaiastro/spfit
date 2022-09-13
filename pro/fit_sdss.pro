@@ -18,6 +18,8 @@ pro fit_sdss, infile, ssplib=ssplib, MH=MH, age=age, linefile=linefile, $
 ; 	ssplib - string defines the SSP library to be used. 
 ;		Curent options include 'miuscat', 'm11_stelib' ... 
 ;		both use Kroupa IMF. (default: miuscat-thin)
+;	MH - 2-element array giving the range of [M/H] to be included
+;	Age - 2-element array giving the range of Age (Gyr) to be included 
 ;	linefile - emission line setup file
 ;	outdir - output directory (default: the same as input file)
 ;	/verbose - print information at each stage of gandalf_SDSS and
@@ -43,7 +45,6 @@ pro fit_sdss, infile, ssplib=ssplib, MH=MH, age=age, linefile=linefile, $
 ;-
 
 on_error,2
-device,decompose=0,retain=2
 
 ; start counting elapsed time
 if keyword_set(verbose) then tic
@@ -231,9 +232,7 @@ if keyword_set(ps) then begin
 		outfile=plotfile+'.eps',_EXTRA=extra
 endif else begin
 	;device,decomp=0 
-	window,0,xs=600*1.5,ys=400*1.5
-	show_spec_fit,fit_results,mylegend=mylegend,_EXTRA=extra
-	save_screen,plotfile+'.png'
+	show_spec_fit,fit_results,mylegend=mylegend,outfile=plotfile+'.png',_EXTRA=extra
 endelse
 ; repeat for broad line fit
 if keyword_set(BLR) then begin
@@ -244,9 +243,7 @@ if keyword_set(BLR) then begin
   		outfile=plotfile+'br.eps',_EXTRA=extra
   endif else begin
   	;device,decomp=0 
-  	window,0,xs=600*1.5,ys=400*1.5
-  	show_spec_fit,pars,mylegend=mylegend,_EXTRA=extra
-  	save_screen,plotfile+'br.png'
+  	show_spec_fit,pars,mylegend=mylegend,outfile=plotfile+'br.png',_EXTRA=extra
   endelse
 endif
 
