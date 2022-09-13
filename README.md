@@ -1,14 +1,19 @@
-# spfit: a spectral fitting tool in IDL
+# spfit: a spectral fitting tool for galaxies
 
-SPFIT is an IDL-based package to simultaneous fit stellar continuum and emission lines. The package is built upon the Penalized Pixel-Fitting method (pPXF) (Cappellari & Emsellem 2004, Cappellari 2017) and Gas AND Absorption Line Fitting (GANDALF) (Sarzi et al. 2006). For the ease of use, wrappers and examples for modeling SDSS single-fiber spectra and MaNGA IFU datacubes are provided.
+SPFIT is an
+[IDL](https://www.l3harrisgeospatial.com/Software-Technology/IDL)-based package to simultaneous fit models of stellar
+continuum and emission lines to galaxy spectra. The
+intial solution is found with the Penalized Pixel-Fitting method
+([pPXF](https://www-astro.physics.ox.ac.uk/~cappellari/software/#ppxf)) and the optimization of final solution uses [MPFIT - Robust non-linear least squares curve
+fitting](https://pages.physics.wisc.edu/~craigm/idl/fitting.html). For
+the ease of use, wrappers and examples for modeling SDSS single-fiber
+spectra and MaNGA integral-field spectroscopic datacubes are provided. 
+A brief installation guide can be found below, which assumes macOS and bash shell.
 
 ## References
 
-- Cappellari & Emsellem [2004PASP..116..138C](http://adsabs.harvard.edu/abs/2004PASP..116..138C)
-- Sarzi et al. [2006MNRAS.366.1151S](https://ui.adsabs.harvard.edu/abs/2006MNRAS.366.1151S)
-- Cappellari [2017MNRAS.466..798C](https://ui.adsabs.harvard.edu/abs/2017MNRAS.466..798C)
-- Fu et al. [2018ApJ...856...93F](https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F)
 - Steffen et al. [2021ApJ...909..120S](https://ui.adsabs.harvard.edu/abs/2021ApJ...909..120S)
+- Fu et al. [2018ApJ...856...93F](https://ui.adsabs.harvard.edu/abs/2018ApJ...856...93F)
 
 ## Install
 
@@ -19,44 +24,39 @@ git clone https://github.com/fuhaiastro/spfit.git
 ```
 2. Set environmental variables and define start-up command to launch `spfit`.
 ```shell
-vi ~/.tcshrc
-alias spfit 'source ~/idl/spfit/setup.csh; /Applications/harris/idl/bin/idl -IDL_PROMPT "SPFIT> "'
+vi ~/.bash_profile
+alias spfit='source ~/idl/spfit/setup.sh; /Applications/harris/idl/bin/idl -IDL_PROMPT "SPFIT>"'
 ```
 3. Make sure the appropriate paths are set correctly for your host.
 ```shell
-vi ~/idl/spfit/setup.csh
+vi ~/idl/spfit/setup.sh
 ```
 Below is the content of the setup file:
 ```shell
-# IDL environment variables and aliases.
-# tested on IDL v8.7.2 for Mac OSX
-setenv EXELIS_DIR /Applications/harris
-setenv IDL_DIR /Applications/harris/idl
-alias harrislicense $IDL_DIR/bin/harrislicense
-if ( -x $IDL_DIR/bin/idlde ) alias idlde $IDL_DIR/bin/idlde
-if ( -x $IDL_DIR/bin/idlhelp ) alias idlhelp $IDL_DIR/bin/idlhelp
-if ( -x $IDL_DIR/bin/idlrpc ) alias idlrpc $IDL_DIR/bin/idlrpc
-if ( -x $IDL_DIR/bin/idltaskengine ) alias idltaskengine $IDL_DIR/bin/idltaskengine
-setenv IDL_PATH +$IDL_DIR/examples:+$IDL_DIR/lib
-setenv IDL $HOME/idl
+# Bash shell commands to define IDL environment variables and aliases.
+. /Applications/harris/idl/bin/idl_setup.bash
 
-# MaNGA
-setenv MANGA_DIR /s1/manga
-setenv MANGA_SPECTRO_REDUX $MANGA_DIR/spectro/redux/
-setenv MANGADRP_VER MPL-11
+export IDL_PATH=+$IDL_DIR/examples:+$IDL_DIR/lib
+export IDL=$HOME/idl
+
+# MaNGA 
+export MANGA_DIR=/Volumes/scr/manga
+export MANGA_SPECTRO_REDUX=$MANGA_DIR/spectro/redux/
+export MANGADRP_VER=MPL-11
 # SPFIT
-setenv SPFIT_DIR $HOME/idl/spfit/
-setenv IDL_PATH ${IDL_PATH}:+$SPFIT_DIR/pro
+export SPFIT_DIR=$HOME/idl/spfit/
+export IDL_PATH=${IDL_PATH}:+$SPFIT_DIR/pro
 # IDLUTILS (includes Astrolib, Coyote, & MPFIT)
-setenv IDLUTILS_DIR $IDL/idlutils
-setenv IDL_PATH ${IDL_PATH}:+$IDLUTILS_DIR/goddard/pro:+$IDLUTILS_DIR/pro
-setenv PATH $IDLUTILS_DIR/bin:$PATH
+export IDLUTILS_DIR=$IDL/idlutils
+#export IDL_PATH ${IDL_PATH}:+$IDL/astron/pro:+$IDLUTILS_DIR/goddard/pro:+$IDLUTILS_DIR/pro
+export IDL_PATH=${IDL_PATH}:+$IDLUTILS_DIR/goddard/pro:+$IDLUTILS_DIR/pro
+export PATH=$IDLUTILS_DIR/bin:$PATH
 # SFD98 Galactic dust maps
-setenv DUST_DIR $IDL/dust
+export DUST_DIR=$IDL/dust 
 # IDLSPEC2D
-setenv IDLSPEC2D_DIR $IDL/idlspec2d
-setenv IDL_PATH ${IDL_PATH}:+$IDLSPEC2D_DIR/pro
-setenv PATH $IDLSPEC2D_DIR/bin:$PATH
+export IDLSPEC2D_DIR=$IDL/idlspec2d
+export IDL_PATH=${IDL_PATH}:+$IDLSPEC2D_DIR/pro
+export PATH=$IDLSPEC2D_DIR/bin:$PATH
 ```
 4. Install IDLUTILS
 ```shell
@@ -64,9 +64,9 @@ cd ~/idl
 mkdir idlutils
 cd idlutils
 svn co https://svn.sdss.org/public/repo/sdss/idlutils/trunk .
-setenv IDL_DIR /Applications/harris/idl
-setenv IDL $HOME/idl
-setenv IDLUTILS_DIR $IDL/idlutils
+export IDL_DIR=/Applications/harris/idl
+export IDL=$HOME/idl
+export IDLUTILS_DIR=$IDL/idlutils
 $IDLUTILS_DIR/bin/evilmake clean
 $IDLUTILS_DIR/bin/evilmake
 ```
@@ -76,7 +76,7 @@ cd ~/idl
 mkdir idlspec2d
 cd idlspec2d
 svn co https://svn.sdss.org/public/repo/eboss/idlspec2d/trunk/ .
-setenv IDLSPEC2D_DIR $IDL/idlspec2d
+export IDLSPEC2D_DIR=$IDL/idlspec2d
 $IDLUTILS_DIR/bin/evilmake clean
 $IDLUTILS_DIR/bin/evilmake
 ```
