@@ -1,14 +1,18 @@
 # spfit: a spectral fitting tool for galaxies
 
 SPFIT is an
-[IDL](https://www.l3harrisgeospatial.com/Software-Technology/IDL)-based package to simultaneous fit models of stellar
-continuum and emission lines to galaxy spectra. The
-intial solution is found with the Penalized Pixel-Fitting method
-([pPXF](https://www-astro.physics.ox.ac.uk/~cappellari/software/#ppxf)) and the optimization of final solution uses [MPFIT - Robust non-linear least squares curve
+[IDL](https://www.l3harrisgeospatial.com/Software-Technology/IDL)-based
+package to simultaneous fit models of stellar continuum and emission
+lines to galaxy spectra. The intial solution is found with [pPXF -
+Penalized
+Pixel-Fitting](https://www-astro.physics.ox.ac.uk/~cappellari/software/#ppxf))
+and the optimization of the final solution uses [MPFIT - Robust
+non-linear least squares curve
 fitting](https://pages.physics.wisc.edu/~craigm/idl/fitting.html). For
 the ease of use, wrappers and examples for modeling SDSS single-fiber
-spectra and MaNGA integral-field spectroscopic datacubes are provided. 
-A brief installation guide can be found below, which assumes macOS and bash shell.
+spectra and MaNGA integral-field spectroscopic datacubes are provided.
+A brief installation guide can be found below, which assumes familarity
+with macOS and Bash shell.
 
 ## References
 
